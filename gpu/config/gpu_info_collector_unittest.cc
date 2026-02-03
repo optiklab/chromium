@@ -386,4 +386,23 @@ TEST(MultiGPUsTest, IdentifyActiveGPUAvoidFalseMatch) {
   EXPECT_FALSE(gpu_info.secondary_gpus[0].active);
 }
 
+#if BUILDFLAG(IS_WIN)
+TEST(GpuInfoCollectorTest, ShutdownPreventsCollection) {
+  // Test that setting shutdown flag prevents GPU info collection
+  GPUInfo gpu_info;
+  
+  // Should work normally before shutdown
+  bool result_before = CollectBasicGraphicsInfo(&gpu_info);
+  // Result may vary depending on system, but should not crash
+  
+  // Set shutdown flag
+  SetGpuInfoCollectorShutdownForTesting();
+  
+  // After shutdown, should return false and skip collection
+  GPUInfo gpu_info_after;
+  bool result_after = CollectBasicGraphicsInfo(&gpu_info_after);
+  EXPECT_FALSE(result_after);
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 }  // namespace gpu

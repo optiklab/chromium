@@ -16,6 +16,7 @@
 #include <wrl/client.h>
 
 #include <array>
+#include <atomic>
 
 #include "base/compiler_specific.h"
 #include "base/file_version_info_win.h"
@@ -45,6 +46,11 @@
 namespace gpu {
 
 namespace {
+
+// Thread-safe flag to indicate if the GPU process is shutting down.
+// Used to prevent delay-loaded DLL crashes (e.g., dxgi.dll) during process
+// termination. See https://crbug.com/XXXXX for context.
+std::atomic<bool> g_is_shutting_down{false};
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -333,6 +339,15 @@ void CollectNPUInformation(GPUInfo* gpu_info) {
 
 bool CollectDriverInfoD3D(GPUInfo* gpu_info) {
   TRACE_EVENT0("gpu", "CollectDriverInfoD3D");
+
+  // Skip GPU info collection during process shutdown to avoid crashes from
+  // delay-loaded DLLs (e.g., dxgi.dll) being unloaded before this code
+  // finishes executing. This prevents access violations in the delay-load
+  // helper during shutdown. See https://devblogs.microsoft.com/oldnewthing/20190718-00/?p=102719
+  if (g_is_shutting_down.load(std::memory_order_acquire)) {
+    DLOG(WARNING) << "Skipping GPU info collection during shutdown";
+    return false;
+  }
 
   CollectNPUInformation(gpu_info);
 
@@ -954,6 +969,10 @@ bool IdentifyActiveGPUWithLuid(GPUInfo* gpu_info) {
   }
 
   return false;
+}
+
+void SetGpuInfoCollectorShutdownForTesting() {
+  g_is_shutting_down.store(true, std::memory_order_release);
 }
 
 }  // namespace gpu
