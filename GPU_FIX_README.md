@@ -10,7 +10,9 @@ Access violations in `gpu::CollectDriverInfoD3D` during process shutdown, caused
 
 ## Solution
 
-Added thread-safe shutdown detection to prevent GPU info collection during process termination, avoiding calls to potentially unloaded delay-loaded DLLs.
+Added thread-safe shutdown detection that prevents GPU info collection during process termination, integrated into the GPU process lifecycle via `GpuChildThread` destructor.
+
+**CRITICAL FIX**: Initial implementation only called shutdown in tests. Now properly integrated into runtime via `GpuChildThread::~GpuChildThread()`.
 
 ## Documents
 
@@ -33,11 +35,13 @@ Answers all questions from the problem statement:
 
 Details the actual code changes:
 - Code locations and specifics
+- Runtime integration fix
 - Testing strategy
-- Integration guidance for production use
 - Future considerations
 
-**Read this for**: Understanding what was implemented, how to test it, and how to integrate it into production.
+**IMPORTANT**: Documents the critical fix where shutdown detection was integrated into GPU process runtime (not just tests).
+
+**Read this for**: Understanding what was implemented, how it's integrated into production, and how to test it.
 
 ## Code Changes
 
@@ -46,14 +50,20 @@ Details the actual code changes:
 1. **gpu/config/gpu_info_collector_win.cc**
    - Added `std::atomic<bool> g_is_shutting_down` flag
    - Added shutdown check in `CollectDriverInfoD3D()`
-   - Implemented `SetGpuInfoCollectorShutdownForTesting()`
+   - Implemented `SetGpuInfoCollectorShutdown()`
    - Lines changed: +19
 
 2. **gpu/config/gpu_info_collector.h**
-   - Exposed `SetGpuInfoCollectorShutdownForTesting()` API
-   - Lines changed: +5
+   - Exposed `SetGpuInfoCollectorShutdown()` API
+   - Lines changed: +7
 
-3. **gpu/config/gpu_info_collector_unittest.cc**
+3. **content/gpu/gpu_child_thread.cc** ⭐ **CRITICAL**
+   - **Added destructor implementation that calls shutdown function**
+   - Included `gpu/config/gpu_info_collector.h`
+   - This integrates the fix into actual GPU process shutdown
+   - Lines changed: +10
+
+4. **gpu/config/gpu_info_collector_unittest.cc**
    - Added `ShutdownPreventsCollection` test case
    - Lines changed: +19
 
@@ -62,19 +72,19 @@ Details the actual code changes:
 ### For Reviewers
 1. Read the **Executive Summary** in `GPU_RELIABILITY_ANALYSIS.md`
 2. Review the **Recommended Approach** section (Approach 1)
-3. Check the code changes in the three modified files
+3. **CRITICAL**: Check `content/gpu/gpu_child_thread.cc` destructor integration
 4. Review the unit test for correctness
 
 ### For Developers
 1. Read `IMPLEMENTATION_SUMMARY.md` for implementation details
-2. Review code changes in `gpu/config/gpu_info_collector_win.cc`
-3. Check header file `gpu/config/gpu_info_collector.h` for API
+2. Review code changes in `content/gpu/gpu_child_thread.cc` (runtime integration)
+3. Check `gpu/config/gpu_info_collector_win.cc` for shutdown detection logic
 4. Run unit test: `gpu_unittests --gtest_filter="GpuInfoCollectorTest.ShutdownPreventsCollection"`
 
 ### For Integration
-1. Call `SetGpuInfoCollectorShutdownForTesting()` from GPU process shutdown code
+1. **No additional integration needed** - shutdown is automatically called in `GpuChildThread` destructor
 2. Monitor crash rates for delay-load related issues
-3. See "Future Considerations" in `IMPLEMENTATION_SUMMARY.md`
+3. See "Runtime Integration" section in `IMPLEMENTATION_SUMMARY.md`
 
 ## Why Not Rust?
 
