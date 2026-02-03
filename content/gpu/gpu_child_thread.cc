@@ -31,6 +31,7 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/gpu/content_gpu_client.h"
 #include "gpu/command_buffer/common/shm_count.h"
+#include "gpu/config/gpu_info_collector.h"
 #include "gpu/ipc/service/gpu_channel_manager.h"
 #include "gpu/ipc/service/gpu_init.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
@@ -140,7 +141,14 @@ GpuChildThread::GpuChildThread(base::RepeatingClosure quit_closure,
   }
 }
 
-GpuChildThread::~GpuChildThread() = default;
+GpuChildThread::~GpuChildThread() {
+#if BUILDFLAG(IS_WIN)
+  // Signal shutdown to prevent delay-loaded DLL crashes when dxgi.dll
+  // or other delay-loaded DLLs are unloaded during process termination.
+  // This must happen before any code that might trigger GPU info collection.
+  gpu::SetGpuInfoCollectorShutdown();
+#endif
+}
 
 void GpuChildThread::Init(
     const base::TimeTicks& process_start_time,

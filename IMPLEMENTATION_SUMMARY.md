@@ -20,7 +20,7 @@ During process shutdown, Windows may unload delay-loaded DLLs (like dxgi.dll) be
 
 ### Approach: Shutdown Detection and Early Exit
 
-Added a thread-safe shutdown flag that prevents GPU info collection during process termination.
+Added a thread-safe shutdown flag that prevents GPU info collection during process termination, and integrated it into the GPU process lifecycle.
 
 ### Key Changes
 
@@ -28,13 +28,19 @@ Added a thread-safe shutdown flag that prevents GPU info collection during proce
    - Added `#include <atomic>` for thread-safe flag
    - Declared `std::atomic<bool> g_is_shutting_down{false}` in anonymous namespace
    - Added shutdown check at start of `CollectDriverInfoD3D()`
-   - Implemented `SetGpuInfoCollectorShutdownForTesting()` function
+   - Implemented `SetGpuInfoCollectorShutdown()` function
 
 2. **gpu/config/gpu_info_collector.h**:
-   - Added `GPU_CONFIG_EXPORT void SetGpuInfoCollectorShutdownForTesting()` declaration
+   - Added `GPU_CONFIG_EXPORT void SetGpuInfoCollectorShutdown()` declaration
    - Documented purpose: prevent delay-loaded DLL crashes during shutdown
+   - Should be called from GPU process shutdown path
 
-3. **gpu/config/gpu_info_collector_unittest.cc**:
+3. **content/gpu/gpu_child_thread.cc**:
+   - **CRITICAL FIX**: Added call to `SetGpuInfoCollectorShutdown()` in `~GpuChildThread()` destructor
+   - This integrates the fix into the actual GPU process shutdown path
+   - Included `gpu/config/gpu_info_collector.h` header
+
+4. **gpu/config/gpu_info_collector_unittest.cc**:
    - Added `ShutdownPreventsCollection` test case
    - Tests that shutdown flag correctly prevents collection
 
@@ -50,8 +56,20 @@ if (g_is_shutting_down.load(std::memory_order_acquire)) {
 
 **Shutdown Setter** (gpu_info_collector_win.cc:974-976):
 ```cpp
-void SetGpuInfoCollectorShutdownForTesting() {
+void SetGpuInfoCollectorShutdown() {
   g_is_shutting_down.store(true, std::memory_order_release);
+}
+```
+
+**Runtime Integration** (content/gpu/gpu_child_thread.cc:144-151):
+```cpp
+GpuChildThread::~GpuChildThread() {
+#if BUILDFLAG(IS_WIN)
+  // Signal shutdown to prevent delay-loaded DLL crashes when dxgi.dll
+  // or other delay-loaded DLLs are unloaded during process termination.
+  // This must happen before any code that might trigger GPU info collection.
+  gpu::SetGpuInfoCollectorShutdown();
+#endif
 }
 ```
 
@@ -98,25 +116,31 @@ out/Default/gpu_unittests --gtest_filter="GpuInfoCollectorTest.ShutdownPreventsC
 out/Default/gpu_unittests
 ```
 
+## Runtime Integration (FIXED)
+
+**Previous Issue**: The original implementation only called the shutdown function in unit tests, not in actual runtime code, so the fix wouldn't work in production.
+
+**Solution**: The shutdown flag is now automatically set in the `GpuChildThread` destructor, which is called during GPU process termination:
+
+```cpp
+// content/gpu/gpu_child_thread.cc
+GpuChildThread::~GpuChildThread() {
+#if BUILDFLAG(IS_WIN)
+  gpu::SetGpuInfoCollectorShutdown();
+#endif
+}
+```
+
+This ensures the shutdown flag is set **before** any delay-loaded DLLs are unloaded, preventing the crash in production environments.
+
+### Call Chain
+1. GPU process begins shutdown
+2. `~GpuChildThread()` destructor called
+3. `SetGpuInfoCollectorShutdown()` sets atomic flag to true
+4. Any subsequent calls to `CollectDriverInfoD3D()` return early
+5. No access to potentially unloaded dxgi.dll
+
 ## Future Considerations
-
-### When to Call SetGpuInfoCollectorShutdownForTesting()
-
-The testing function should be called from GPU process shutdown code:
-- In `content/gpu/gpu_main.cc` shutdown path
-- In `gpu/ipc/service/gpu_init.cc` destructor or shutdown handler
-- Before any delay-loaded DLLs are potentially unloaded
-
-**Note**: The current implementation provides the mechanism but doesn't automatically integrate into shutdown flow. This allows for controlled testing and deployment.
-
-### Production Integration
-
-For production use, the shutdown flag should be set by:
-1. GPU process shutdown handler
-2. Windows DLL_PROCESS_DETACH handler (if applicable)
-3. AtExitManager callback (if using base library pattern)
-
-### Monitoring
 
 Post-deployment, monitor:
 - Crash rates in GPU process with signature matching delay-load issues

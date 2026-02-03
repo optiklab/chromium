@@ -396,7 +396,7 @@ TEST(GpuInfoCollectorTest, ShutdownPreventsCollection) {
   // Result may vary depending on system, but should not crash
   
   // Set shutdown flag
-  SetGpuInfoCollectorShutdownForTesting();
+  SetGpuInfoCollectorShutdown();
   
   // After shutdown, should return false and skip collection
   GPUInfo gpu_info_after;

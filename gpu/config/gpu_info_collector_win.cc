@@ -971,7 +971,7 @@ bool IdentifyActiveGPUWithLuid(GPUInfo* gpu_info) {
   return false;
 }
 
-void SetGpuInfoCollectorShutdownForTesting() {
+void SetGpuInfoCollectorShutdown() {
   g_is_shutting_down.store(true, std::memory_order_release);
 }
 

@@ -48,9 +48,10 @@ GPU_CONFIG_EXPORT bool CollectContextGraphicsInfo(GPUInfo* gpu_info);
 
 #if BUILDFLAG(IS_WIN)
 // Signal that the GPU process is shutting down. This prevents delay-loaded
-// DLL crashes during process termination. Must be called before attempting
-// to unload or call into delay-loaded DLLs like dxgi.dll.
-GPU_CONFIG_EXPORT void SetGpuInfoCollectorShutdownForTesting();
+// DLL crashes during process termination by skipping GPU info collection
+// that would call into delay-loaded DLLs like dxgi.dll.
+// Should be called from GPU process shutdown path (e.g., GpuChildThread destructor).
+GPU_CONFIG_EXPORT void SetGpuInfoCollectorShutdown();
 
 // Collect the DirectX Disagnostics information about the attached displays.
 GPU_CONFIG_EXPORT void GetGpuSupportedDirectXVersion(
