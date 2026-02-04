@@ -392,8 +392,8 @@ TEST(GpuInfoCollectorTest, ShutdownPreventsCollection) {
   GPUInfo gpu_info;
   
   // Should work normally before shutdown
-  bool result_before = CollectBasicGraphicsInfo(&gpu_info);
   // Result may vary depending on system, but should not crash
+  (void)CollectBasicGraphicsInfo(&gpu_info);
   
   // Set shutdown flag
   SetGpuInfoCollectorShutdown();
