@@ -1,0 +1,22 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Rust-based replacement for liburlpattern
+#
+# This directory contains a Rust FFI bridge that wraps the urlpattern crate
+# to provide a memory-safe implementation of URL pattern matching.
+
+group("liburlpattern_rs") {
+  public_deps = [
+    "//third_party/liburlpattern_rs/ffi:liburlpattern_ffi",
+  ]
+}
+
+group("tests") {
+  testonly = true
+  
+  deps = [
+    "//third_party/liburlpattern_rs/ffi:liburlpattern_ffi_unittests",
+  ]
+}

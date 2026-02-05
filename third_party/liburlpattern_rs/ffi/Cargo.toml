@@ -1,0 +1,35 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+[package]
+name = "liburlpattern_ffi"
+version = "0.1.0"
+edition = "2021"
+authors = ["The Chromium Authors"]
+
+[lib]
+crate-type = ["staticlib"]
+name = "liburlpattern_ffi"
+
+[dependencies]
+# urlpattern crate - must be added to Chromium first
+# See CRATE_ADDITION_GUIDE.md for instructions
+# urlpattern = "0.3.0"
+
+# cxx for C++/Rust FFI
+# Already available in Chromium
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+
+# Note: Once urlpattern is added to Chromium, uncomment the dependency above
+# and update this file to use the Chromium-vendored version:
+#
+# [dependencies]
+# urlpattern = { path = "../../../rust/chromium_crates_io/vendor/urlpattern-v0_3" }

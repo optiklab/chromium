@@ -1,0 +1,8 @@
+# Metadata for liburlpattern Rust FFI
+
+monorail {
+  project: "chromium"
+  component: "Blink>URLPattern"
+}
+
+team_email: "chrome-safe-coding@google.com"

@@ -1,0 +1,11 @@
+# Owners for the Rust FFI bridge for liburlpattern
+
+# Primary owners (inherit from liburlpattern)
+file://third_party/liburlpattern/OWNERS
+
+# Rust expertise
+file://third_party/rust/OWNERS
+
+# For questions about this Rust implementation:
+# - See implementation plan: IMPLEMENTATION_PLAN.md
+# - Contact chrome-safe-coding@google.com
