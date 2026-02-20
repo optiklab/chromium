@@ -25,6 +25,17 @@ config("flatbuffers_config") {
   }
 }
 
+# A type-safe wrapper that enforces FlatBuffer verification before access.
+# Prefer using this over calling flatbuffers::GetRoot<T>() and Verify*Buffer()
+# separately, since this wrapper makes it impossible to skip verification.
+source_set("safe_flatbuffers") {
+  public = [ "safe_flatbuffers.h" ]
+  public_deps = [
+    ":flatbuffers",
+    "//base",
+  ]
+}
+
 # The part of FlatBuffers that Chrome is interested in.
 source_set("flatbuffers") {
   public = [
