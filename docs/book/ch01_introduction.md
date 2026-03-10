@@ -336,4 +336,4 @@ Before moving to Chapter 2, make sure you have a firm grip on these ideas:
 
 ---
 
-*Next: [Chapter 2 – Multi-Process Architecture & Process Model](ch02_multi_process_architecture.md)*
+*Next: [Chapter 2 – Multi-Process Architecture & Process Model](ch02_architecture.md)*

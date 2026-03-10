@@ -85,8 +85,8 @@ is, in a very real sense, understanding the modern web.
 | Chapter | Title |
 |---------|-------|
 | **1** | [Introduction to Chromium](ch01_introduction.md) |
-| **2** | Multi-Process Architecture & Process Model |
-| **3** | Mojo IPC – How Processes Talk to Each Other |
+| **2** | [Multi-Process Architecture & Process Model](ch02_architecture.md) |
+| **3** | [Mojo IPC – How Processes Talk to Each Other](ch03_mojo_ipc.md) |
 | **4** | Life of a URL – The Browser Pipeline |
 | **5** | The Networking Stack |
 | **6** | The Renderer Process & Blink |
