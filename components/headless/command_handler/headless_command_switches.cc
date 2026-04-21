@@ -15,6 +15,9 @@ const char kDefaultBackgroundColor[] = "default-background-color";
 // stdout.
 const char kDumpDom[] = "dump-dom";
 
+// Print a text-rendered browser view to stdout.
+const char kConsoleUI[] = "console-ui";
+
 // Save a PDF file of the loaded page.
 const char kPrintToPDF[] = "print-to-pdf";
 

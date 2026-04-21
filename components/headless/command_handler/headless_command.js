@@ -224,6 +224,54 @@ async function dumpDOM(dp) {
   return response.result.result.value;
 }
 
+async function renderConsoleUI(dp) {
+  const script = `
+    (() => {
+      const title = document.title || '(untitled)';
+      const url = location.href;
+      const visibleText = (document.body?.innerText || '')
+          .replace(/\\s+\\n/g, '\\n')
+          .replace(/\\n{3,}/g, '\\n\\n')
+          .trim();
+      const controls = Array.from(
+          document.querySelectorAll(
+              'a,button,input,select,textarea,summary,[role="button"],[role="link"]'))
+          .slice(0, 30)
+          .map((node, index) => {
+            const tag = node.tagName.toLowerCase();
+            const label = (node.innerText || node.value || node.name ||
+                           node.getAttribute('aria-label') ||
+                           node.getAttribute('title') || '')
+                              .replace(/\\s+/g, ' ')
+                              .trim();
+            return \`\${index + 1}. <\${tag}>\${label ? ' ' + label : ''}\`;
+          });
+
+      const lines = [
+        '=== Chromium Console UI ===',
+        '',
+        '[Tabs]',
+        \`* 1. \${title} (\${url})\`,
+        '',
+        '[Controls]',
+      ];
+
+      if (controls.length === 0) {
+        lines.push('(none)');
+      } else {
+        lines.push(...controls);
+      }
+
+      lines.push('', '[Content]');
+      lines.push(visibleText || '(empty)');
+      return lines.join('\\n');
+    })()
+  `;
+
+  const response = await dp.Runtime.evaluate({expression: script});
+  return response.result.result.value;
+}
+
 async function printToPDF(dp, params) {
   const displayHeaderFooter = !params.noHeaderFooter;
   const generateTaggedPDF = !params.disablePDFTagging;
@@ -265,6 +313,10 @@ async function handleCommands(dp, commands) {
   const result = {};
   if ('dumpDom' in commands) {
     result.dumpDomResult = await dumpDOM(dp);
+  }
+
+  if ('consoleUi' in commands) {
+    result.consoleUiResult = await renderConsoleUI(dp);
   }
 
   if ('printToPDF' in commands) {

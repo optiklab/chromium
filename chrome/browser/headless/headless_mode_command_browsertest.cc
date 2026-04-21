@@ -176,6 +176,38 @@ IN_PROC_BROWSER_TEST_P(HeadlessModeDumpDomCommandBrowserTest,
   EXPECT_THAT(captured_stdout, testing::HasSubstr(kDomDump));
 }
 
+class HeadlessModeConsoleUiCommandBrowserTest
+    : public HeadlessModeCommandBrowserTest {
+ public:
+  HeadlessModeConsoleUiCommandBrowserTest() = default;
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    HeadlessModeCommandBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kConsoleUI);
+    command_line->AppendArg(GetTargetUrl(GetTargetPage()).spec());
+
+    capture_stdout_.StartCapture();
+  }
+
+ protected:
+  CaptureStdOut capture_stdout_;
+};
+
+IN_PROC_BROWSER_TEST_F(HeadlessModeConsoleUiCommandBrowserTest,
+                       HeadlessConsoleUi) {
+  ASSERT_THAT(ProcessCommands(),
+              testing::Eq(HeadlessCommandHandler::Result::kSuccess));
+
+  capture_stdout_.StopCapture();
+  std::string captured_stdout = capture_stdout_.TakeCapturedData();
+  EXPECT_THAT(captured_stdout,
+              testing::HasSubstr("=== Chromium Console UI ==="));
+  EXPECT_THAT(captured_stdout, testing::HasSubstr("[Tabs]"));
+  EXPECT_THAT(captured_stdout, testing::HasSubstr("[Controls]"));
+  EXPECT_THAT(captured_stdout, testing::HasSubstr("[Content]"));
+  EXPECT_THAT(captured_stdout, testing::HasSubstr("Hello headless world!"));
+}
+
 class HeadlessModeDumpDomCommandBrowserTestWithTimeoutBase
     : public HeadlessModeDumpDomCommandBrowserTestBase {
  public:

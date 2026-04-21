@@ -142,6 +142,11 @@ bool GetCommandDictAndOutputPaths(base::DictValue* commands,
     commands->Set("dumpDom", true);
   }
 
+  // --console-ui
+  if (command_line->HasSwitch(switches::kConsoleUI)) {
+    commands->Set("consoleUi", true);
+  }
+
   // --print-to-pdf=[output path]
   if (command_line->HasSwitch(switches::kPrintToPDF)) {
     base::FilePath path =
@@ -308,6 +313,7 @@ bool HeadlessCommandHandler::HasHeadlessCommandSwitches(
     const base::CommandLine& command_line) {
   static const char* kCommandSwitches[] = {
       switches::kDefaultBackgroundColor,
+      switches::kConsoleUI,
       switches::kDumpDom,
       switches::kPrintToPDF,
       switches::kNoPDFHeaderFooter,
@@ -404,6 +410,11 @@ void HeadlessCommandHandler::OnCommandsResult(base::DictValue result) {
   if (std::string* dom_dump =
           result.FindStringByDottedPath("result.result.value.dumpDomResult")) {
     std::cout << *dom_dump << std::endl;
+  }
+
+  if (std::string* console_ui = result.FindStringByDottedPath(
+          "result.result.value.consoleUiResult")) {
+    std::cout << *console_ui << std::endl;
   }
 
   if (std::string* base64_data = result.FindStringByDottedPath(
