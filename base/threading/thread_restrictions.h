@@ -441,6 +441,7 @@ class DrmDisplayHostManager;
 class ScopedAllowBlockingForGbmSurface;
 class SelectFileDialogLinux;
 class WindowResizeHelperMac;
+class TerminalInputHandler;
 }  // namespace ui
 namespace updater {
 class SystemctlLauncherScopedAllowBaseSyncPrimitives;
@@ -920,7 +921,8 @@ class BASE_EXPORT
       ScopedAllowThreadJoinForWebRtcTransport;  // http://crbug.com/660081
   // Not used in production yet, https://crbug.com/844078.
   friend class service_manager::ServiceProcessLauncher;
-  friend class ui::WindowResizeHelperMac;  // http://crbug.com/902829
+  friend class ui::WindowResizeHelperMac;
+  friend class ui::TerminalInputHandler;  // http://crbug.com/902829
 
   ScopedAllowBaseSyncPrimitivesOutsideBlockingScope(
       const Location& from_here = Location::Current());

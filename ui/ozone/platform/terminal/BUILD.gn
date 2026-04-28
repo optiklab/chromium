@@ -1,0 +1,47 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+visibility = [ "//ui/ozone/*" ]
+
+source_set("terminal") {
+  sources = [
+    "client_native_pixmap_factory_terminal.cc",
+    "client_native_pixmap_factory_terminal.h",
+    "ozone_platform_terminal.cc",
+    "ozone_platform_terminal.h",
+    "terminal_constants.cc",
+    "terminal_constants.h",
+    "terminal_input_handler.cc",
+    "terminal_input_handler.h",
+    "terminal_renderer.cc",
+    "terminal_renderer.h",
+    "terminal_screen.cc",
+    "terminal_screen.h",
+    "terminal_surface_factory.cc",
+    "terminal_surface_factory.h",
+    "terminal_window.cc",
+    "terminal_window.h",
+    "terminal_window_manager.cc",
+    "terminal_window_manager.h",
+  ]
+
+  defines = [ "OZONE_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//components/viz/common/resources:shared_image_format",
+    "//skia",
+    "//ui/base",
+    "//ui/base/cursor",
+    "//ui/base/ime",
+    "//ui/display",
+    "//ui/events",
+    "//ui/events/ozone/layout",
+    "//ui/events/platform",
+    "//ui/gfx/geometry",
+    "//ui/ozone:ozone_base",
+    "//ui/ozone/common",
+    "//ui/platform_window",
+  ]
+}
