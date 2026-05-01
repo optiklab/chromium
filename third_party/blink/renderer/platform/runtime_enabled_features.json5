@@ -854,6 +854,12 @@
       },
     },
     {
+      // Removes special layout code from customizable select which was
+      // preventing it from growing in the inline direction.
+      name: "BaseAppearanceInlineSizing",
+      status: "stable",
+    },
+    {
       name: "BidiCaretAffinity",
     },
     {
@@ -1614,7 +1620,7 @@
     {
       // https://chromestatus.com/feature/5157805733183488
       name: "CSSGapDecoration",
-      status: "experimental",
+      status: "stable",
       depends_on: ["CSSGridGapSuppression"],
     },
     {
@@ -1916,6 +1922,10 @@
       status: "experimental",
     },
     {
+      name: "CSSShapeEllipseCirclePositionSerialization",
+      status: "stable",
+    },
+    {
       // path() and shape() basic shapes for shape-outside.
       // https://drafts.csswg.org/css-shapes-1/#basic-shape-functions
       // https://drafts.csswg.org/css-shapes/#shape-outside-property
@@ -2093,6 +2103,11 @@
       name: "Database",
     },
     {
+      // https://crbug.com/473454959
+      name: "DateTimeInputTypeEarlyAdvanceFix",
+      status: "stable",
+    },
+    {
       // crbug.com/40153320
       name: "DateTimeLocalArabicCommaWorkaround",
       status: "stable",
@@ -2151,6 +2166,10 @@
     {
       name: "DesktopPWAsAdditionalWindowingControls",
       status: "test",
+    },
+    {
+      name: "DesktopPWAsAdditionalWindowingControlsOnMove",
+      status: "experimental",
     },
     {
       name: "DeviceAttributes",
@@ -3290,20 +3309,12 @@
       name: "HTMLInputElementDropWebkitClearButton",
       status: "stable"
     },
-    // Adds support for the `interestfor` attribute. See crbug.com/326681249.
-    // https://open-ui.org/components/interest-invokers.explainer/
-    // This shipped in M142 and the flag can be removed in M144.
-    {
-      name: "HTMLInterestForAttribute",
-      status: "stable",
-    },
     // Adds support for the `::interest-button` pseudo element, which is a sub-
-    // feature of the HTMLInterestForAttribute feature.
+    // feature of the interest invokers feature.
     // https://open-ui.org/components/interest-invokers.explainer/
     {
       name: "HTMLInterestForInterestButtonPseudo",
       status: "experimental",
-      depends_on: ["HTMLInterestForAttribute"],
     },
     {
       // Prevents the HTMLLinkElement processing model from being invoked when
@@ -3473,6 +3484,13 @@
       status: "stable",
       base_feature: "none",
       public: true,
+    },
+    {
+      // Fixes a bug in the implementation of `interest` and `loseinterest`
+      // events - they should not be composed events.
+      // This shipped in M149 and can be removed in M151.
+      name: "InterestEventsNonComposed",
+      status: "stable",
     },
     {
       name: "InterestGroupsInSharedStorageWorklet",
@@ -5524,6 +5542,11 @@
       name: "SplitTextNotCleanupDummySpans",
       status: "stable",
     },
+    {
+      // Mirrors ui::features::kSplitViewLinkOpen.
+      name: "SplitViewLinkOpen",
+      base_feature: "none",
+    },
     // Kill switch for change to unify image-set and srcset selection logic.
     {
       name: "SrcsetSelectionMatchesImageSet",
@@ -5555,6 +5578,11 @@
       origin_trial_type: "deprecation",
       origin_trial_allows_insecure: true,
       origin_trial_allows_third_party: true,
+    },
+    {
+      // Killswitch M149.
+      name: "StickyPositionHasOverflowPerAxis",
+      status: "stable",
     },
     {
       // Preserves the sticky user activation state after a page navigates to
@@ -5819,6 +5847,10 @@
     // For unit tests.
     {
       name: "TestFeatureStable",
+      status: "stable",
+    },
+    {
+      name: "TextAreaScrollTopPreview",
       status: "stable",
     },
     {
@@ -6356,13 +6388,6 @@
       name: "WebAppTranslations",
       status: "experimental",
       base_feature: "WebAppEnableTranslations",
-    },
-    {
-      // https://chromestatus.com/feature/6024844719947776
-      name: "WebAssemblyCustomDescriptors",
-      origin_trial_feature_name: "WebAssemblyCustomDescriptors",
-      status: "experimental",
-      base_feature: "none",
     },
     {
       // https://chromestatus.com/feature/6024844719947776, take 2

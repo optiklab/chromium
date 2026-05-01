@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">Сактагыч толуп калды</translation>
 <translation id="1181037720776840403">Алып салуу</translation>
 <translation id="1190609913194133056">Билдирмелер борбору</translation>
+<translation id="1199631150313925648">Кол менен киргизүү</translation>
 <translation id="1199963004393929848">Жашыл тема</translation>
 <translation id="1201402288615127009">Кийинки</translation>
 <translation id="1204075260022434100">{count,plural, =1{Кыстарма {email} аккаунтуңуздагы "{title}" папкасына сакталды}other{{count} кыстарма {email} аккаунтуңуздагы "{title}" папкасына сакталды}}</translation>
@@ -958,6 +959,7 @@
 <translation id="441868831736628555">Купуялык эскертүүсү</translation>
 <translation id="4420409367264901497">Кыстарманы түзөтүү</translation>
 <translation id="4425365312778464779">Бул аккаунт тескелет</translation>
+<translation id="443008484043213881">Куралдар</translation>
 <translation id="4430277756566635951">Учурда <ph name="EMAIL" /> тандалды. Аккаунт тандаңыз.</translation>
 <translation id="4430505936695785931">Башка колдонмолордо сакталган сырсөздөрдү алуу</translation>
 <translation id="4431224949908513835">Толтуруу үчүн төлөм ыкмасын тандаңыз.</translation>
@@ -1076,7 +1078,7 @@
 <translation id="4824497107140370669">{count,plural, =0{{domain}}=1{{domain} жана дагы 1}other{{domain} жана дагы {count}}}</translation>
 <translation id="4826588772550366629">камера менен микрофонду</translation>
 <translation id="4828431027673677473">Кызыкчылыктарыңызга негизделген товарлар</translation>
-<translation id="4829420936835028285">Өтмөктөр тобун түзөтүү</translation>
+<translation id="4829420936835028285">Өтмөктөр тобун оңдоо</translation>
 <translation id="4833786495304741580">Колдонуу статистикасын жана каталар жөнүндө кабарларды Google'га автоматтык түрдө жөнөтүп турат.</translation>
 <translation id="483689884442613745">Сактоо…</translation>
 <translation id="4840495572919996524">Кыстармаларыңыз, таржымалыңыз, сырсөздөрүңүз жана башкалар мындан ары Google аккаунтуңузга шайкештирилбейт.</translation>
@@ -1294,6 +1296,7 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="5581786858144165447">ЖИден суроо режими</translation>
 <translation id="5585019845078534178">Карточкалар</translation>
 <translation id="5591526871732898147">{index} сүрөтү тиркелди</translation>
+<translation id="5594597292424622277">Видеону тындыруу</translation>
 <translation id="5595485650161345191">Даректи өзгөртүү</translation>
 <translation id="559567008082979829">Жүктөлүп алынгандар бир айдан кийин өчүрүлгөндөй кылып тууралаңыз</translation>
 <translation id="5596627076506792578">Дагы параметрлер</translation>
@@ -1573,6 +1576,7 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="6476800141292307438">Барак <ph name="LANGUAGE" /> тилине которулууда. Параметрлер экрандын төмөн жагында жеткиликтүү.</translation>
 <translation id="647867789226964031">Сырсөздөрүңүздү өзгөртүңүз</translation>
 <translation id="6480363549849064919">Кардардын аныктыгын текшерүү</translation>
+<translation id="6489174933860678546">Интернетти купуя серептөө үчүн жашыруун өтмөктөрдү ачыңыз.</translation>
 <translation id="6494931198667773526">Качан бүтөт</translation>
 <translation id="6503077044568424649">Көп көрүлгөн</translation>
 <translation id="6503763061813913607">Коопсуздукту текшерүү функциясынын билдирмелери</translation>
@@ -1630,6 +1634,7 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="6640268266988685324">Ачык өтмөк</translation>
 <translation id="6641465290890659327">Сырсөзүңүздүн көчүрмөсүн бөлүшүңүз</translation>
 <translation id="6642362222295953972">Учурдагы өтмөккө которулуу</translation>
+<translation id="6643016212128521049">Тазалоо</translation>
 <translation id="6645899968535965230">QR код: <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">Сырсөз</translation>
 <translation id="6659660757330712663">Өтмөктөрдүн арасында которулуу үчүн куралдар тилкесин сүрүп коюңуз.</translation>
@@ -2108,7 +2113,6 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="8319282042900445670">Эстеткич коюлган убакыт: <ph name="TIME" />, <ph name="DATE" /></translation>
 <translation id="8320212361750431956">Соңку аракеттер</translation>
 <translation id="8325455175867928593">"Кызыкчылыктарыңызга негизделген сын-пикирлер" модулун жашыруу</translation>
-<translation id="8328777765163860529">Баарын жабуу</translation>
 <translation id="833647236762414178">Сайттарга жана колдонмолорго оңой кирүү үчүн сырсөздөрдү жана киргизүүчү ачкычтарды түзүп, сактап жана тескеңиз. <ph name="BEGIN_LINK" />Кеңири маалымат<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">Маалыматтын камдык көчүрмөсүн сактап, башка түзмөктө колдоно аласыз.</translation>
 <translation id="8348530355586151720">Үч чекиттүү менюну таптаңыз</translation>
@@ -2163,6 +2167,7 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="8528009254289981965">Башка колдонмолордун шилтемелерин Жашыруун режимде ачуу</translation>
 <translation id="8529767659511976195">Жаңы</translation>
 <translation id="8531572740963685410">PDF файлдары</translation>
+<translation id="8532059953132740592">Видеону ойнотуу</translation>
 <translation id="8533411848724153701">Gemini</translation>
 <translation id="8533670235862049797">Коопсуз серептөө күйүк</translation>
 <translation id="8534481786647257214">Google+ жайгаштырылды.</translation>
@@ -2291,6 +2296,7 @@ Handoff Параметрлердин жалпы бөлүмүндө да иште
 <translation id="8915916167043355778">Баарын жабуу</translation>
 <translation id="892185197271200809">Бардык колдонуучулар "<ph name="GROUP_NAME" />" өтмөктөр тобуна кирүү мүмкүнчүлүгүнөн дароо ажырап, ал бардык түзмөктөрдөн өчүрүлөт</translation>
 <translation id="8923178205567790913">Сырсөздөр</translation>
+<translation id="8926498511977337209">Жашыруун режимде карап чыгуу</translation>
 <translation id="892776311701544612">Көбүрөөк билүү…</translation>
 <translation id="8928133177108699615">Иш такта</translation>
 <translation id="8928426232677696166"><ph name="EMAIL" /> аккаунтун учурда уюмуңуз тескейт. Аккаунт тандаңыз.</translation>

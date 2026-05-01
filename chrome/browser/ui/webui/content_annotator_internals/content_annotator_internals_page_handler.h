@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_CONTENT_ANNOTATOR_INTERNALS_CONTENT_ANNOTATOR_INTERNALS_PAGE_HANDLER_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "components/accessibility_annotator/core/logging/accessibility_annotator_internals.mojom.h"
 #include "components/accessibility_annotator/core/storage/accessibility_annotator_backend.h"
@@ -50,6 +51,9 @@ class ContentAnnotatorInternalsPageHandler
   void OnContentAnnotationsCleared() override;
 
  private:
+  // Notifies the UI with the current annotated content.
+  void NotifyPageWithAnnotations();
+
   mojo::Receiver<accessibility_annotator_internals::mojom::PageHandler>
       receiver_;
   mojo::Remote<accessibility_annotator_internals::mojom::Page> page_;
@@ -63,6 +67,9 @@ class ContentAnnotatorInternalsPageHandler
       accessibility_annotator::AccessibilityAnnotatorBackend,
       accessibility_annotator::AccessibilityAnnotatorBackend::Observer>
       backend_observation_{this};
+
+  base::WeakPtrFactory<ContentAnnotatorInternalsPageHandler> weak_ptr_factory_{
+      this};
 };
 
 }  // namespace content_annotator_internals

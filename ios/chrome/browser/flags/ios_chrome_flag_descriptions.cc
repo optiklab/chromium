@@ -33,6 +33,11 @@ const char kAIMNTPEntrypointTabletName[] = "AIMNTPEntrypointTablet";
 const char kAIMNTPEntrypointTabletDescription[] =
     "Enables the AIMNTPEntrypointTablet feature.";
 
+const char kAIOmniboxAskPlaceholderName[] = "AI Omnibox Ask Placeholder";
+const char kAIOmniboxAskPlaceholderDescription[] =
+    "Enables the placeholder text to be 'Ask...' instead of 'Search...' when "
+    "AI Omnibox is available.";
+
 const char kAimCobrowseHeaderName[] = "AimCobrowseHeader";
 const char kAimCobrowseHeaderDescription[] =
     "Changes the design of the AIM cobrowse header.";
@@ -186,35 +191,11 @@ const char kAutofillEnableBottomSheetScanCardAndFillDescription[] =
     "When enabled, offers a card scanning BottomSheet and allows users to "
     "save and autofill credit cards in autofill forms.";
 
-const char kAutofillEnableCardBenefitsForAmericanExpressName[] =
-    "Enable showing American Express card benefits";
-const char kAutofillEnableCardBenefitsForAmericanExpressDescription[] =
-    "When enabled, card benefits offered by American Express will be shown in "
-    "Autofill suggestions.";
-
-const char kAutofillEnableCardBenefitsForBmoName[] =
-    "Enable showing BMO card benefits";
-const char kAutofillEnableCardBenefitsForBmoDescription[] =
-    "When enabled, card benefits offered by BMO will be shown in Autofill "
-    "suggestions.";
-
-const char kAutofillEnableCardBenefitsSyncName[] =
-    "Enable syncing card benefits from the server";
-const char kAutofillEnableCardBenefitsSyncDescription[] =
-    "When enabled, card benefits offered by issuers will be synced from "
-    "the Payments server.";
-
 const char kAutofillEnableCardInfoRuntimeRetrievalName[] =
     "Enable retrieval of card info(with CVC) from issuer for enrolled cards";
 const char kAutofillEnableCardInfoRuntimeRetrievalDescription[] =
     "When enabled, runtime retrieval of CVC along with card number and expiry "
     "from issuer for enrolled cards will be enabled during form fill.";
-
-const char kAutofillEnableFlatRateCardBenefitsFromCurinosName[] =
-    "Enable showing flat rate card benefits sourced from Curinos";
-const char kAutofillEnableFlatRateCardBenefitsFromCurinosDescription[] =
-    "When enabled, flat rate card benefits sourced from Curinos will be shown "
-    "in Autofill suggestions.";
 
 const char kAutofillEnablePrefetchingRiskDataForRetrievalName[] =
     "Enable prefetching of risk data during payments autofill retrieval";
@@ -795,10 +776,6 @@ const char kGeminiPreciseLocationName[] = "BWG Precise Location";
 const char kGeminiPreciseLocationDescription[] =
     "When enabled, the precise location row is shown in BWG settings.";
 
-const char kGeminiRefactoredFREName[] = "Gemini Refactored FRE";
-const char kGeminiRefactoredFREDescription[] =
-    "Enables the refactored Gemini First Run Experience (FRE).";
-
 const char kGeminiResponseViewDynamicResizingName[] =
     "Gemini Response View Dynamic Resizing";
 const char kGeminiResponseViewDynamicResizingDescription[] =
@@ -808,6 +785,11 @@ const char kGeminiRichAPCExtractionName[] = "Gemini Rich APC Extraction";
 const char kGeminiRichAPCExtractionDescription[] =
     "Enables rich APC extraction for Gemini.";
 
+const char kGeminiScreenContextMigrationName[] =
+    "Gemini Screen Context Migration";
+const char kGeminiScreenContextMigrationDescription[] =
+    "Enables migration from Gemini Page Context to Screen Context.";
+
 const char kGeminiUnaryMigrationName[] = "Gemini Unary Migration";
 const char kGeminiUnaryMigrationDescription[] =
     "Enables the unary network migration for Gemini.";
@@ -815,6 +797,11 @@ const char kGeminiUnaryMigrationDescription[] =
 const char kGeminiUpdatedEligibilityName[] = "Gemini Updated Eligibility";
 const char kGeminiUpdatedEligibilityDescription[] =
     "Enables the updated eligibility checks for Gemini users.";
+
+const char kGeneralizedGeminiEntryFlowName[] = "Generalized Gemini Entry Flow";
+const char kGeneralizedGeminiEntryFlowDescription[] =
+    "Generalizes the Gemini entry flow to handle auth and eligibility outside "
+    "of the Page Action Menu.";
 
 const char kHandleMdmErrorsForDasherAccountsName[] =
     "Mdm error handling for dasher accounts";
@@ -941,6 +928,11 @@ const char kIOSOneTimeDefaultBrowserNotificationName[] =
 const char kIOSOneTimeDefaultBrowserNotificationDescription[] =
     "Enables a one-time notification to prompt the user to set the app as the "
     "default browser.";
+
+const char kIOSPasswordAutoSubmissionName[] =
+    "Auto Submission for Password Autofill";
+const char kIOSPasswordAutoSubmissionDescription[] =
+    "Enables automatic submission of password forms when filling credentials.";
 
 const char kIOSProactivePasswordGenerationBottomSheetName[] =
     "IOS Proactive Password Generation Bottom Sheet";
@@ -1572,12 +1564,6 @@ const char kSafeBrowsingAvailableDescription[] =
     "When enabled, navigation URLs are compared to Safe Browsing blocklists, "
     "subject to an opt-out preference.";
 
-const char kSafeBrowsingLocalListsUseSBv5Name[] =
-    "Safe Browsing Local Lists use v5 API";
-const char kSafeBrowsingLocalListsUseSBv5Description[] =
-    "Fetch and check local lists using the Safe Browsing v5 API instead of the "
-    "v4 Update API.";
-
 const char kSafeBrowsingRealTimeLookupName[] = "Enable real-time Safe Browsing";
 const char kSafeBrowsingRealTimeLookupDescription[] =
     "When enabled, navigation URLs are checked using real-time queries to Safe "
@@ -1819,6 +1805,12 @@ const char kUseFeedEligibilityServiceDescription[] =
 const char kUseSceneViewControllerName[] = "Use Scene View Controller";
 const char kUseSceneViewControllerDescription[] =
     "Enables the use of SceneViewController.";
+
+const char kUseUIGraphicsImageRendererForFallbackIconsName[] =
+    "Use UIGraphicsImageRenderer for Fallback Icons";
+const char kUseUIGraphicsImageRendererForFallbackIconsDescription[] =
+    "When enabled, uses UIGraphicsImageRenderer to generate fallback icons "
+    "instead of deprecated UIGraphicsGetImageFromCurrentImageContext.";
 
 const char kVariationsExperimentalCorpusName[] =
     "Variations experimental corpus";

@@ -1195,8 +1195,7 @@ BASE_FEATURE(kFeatureManagementLobster, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enabling this flag allows password complexity checks when setting a local pin
 // or password.
-BASE_FEATURE(kLocalFactorsPasswordComplexity,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLocalFactorsPasswordComplexity, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables local authentication controller with PIN support.
 BASE_FEATURE(kLocalAuthenticationWithPin, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1224,7 +1223,7 @@ BASE_FEATURE(kMacAddressRandomization, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enabling this flag allows the managed local pin and password related changes
 // to be applied.
-BASE_FEATURE(kManagedLocalPinAndPassword, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kManagedLocalPinAndPassword, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables policy management for USB printers.
 BASE_FEATURE(kManagedUsbPrinters, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1332,7 +1331,7 @@ BASE_FEATURE(kOsSyncAccessibilitySettingsBatch1,
 // animations and caption styling) so the rollout can proceed in small,
 // reversible stages.
 BASE_FEATURE(kOsSyncAccessibilitySettingsBatch2,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Gates syncing of the third batch of accessibility settings (screen + docked
 // magnifiers and select-to-speak toggles) so rollout can proceed incrementally.
@@ -1363,6 +1362,10 @@ BASE_FEATURE(kOobePersonalizedOnboarding, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Pre-consent metrics functionality is enabled during OOBE.
 BASE_FEATURE(kOobePreConsentMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, skips ARC apps on 4GiB devices in OOBE personalized recommend
+// apps screen.
+BASE_FEATURE(kOobeSkipArcAppsOn4GbDevices, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, Consumer Software Screen will be shown during OOBE.
 BASE_FEATURE(kOobeSoftwareUpdate, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1602,7 +1605,7 @@ BASE_FEATURE(kQuickUnlockPinAutosubmitBackfill,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables reordering of screens in the recovery flow.
-BASE_FEATURE(kRecoveryFlowReorder, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kRecoveryFlowReorder, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables or disables Release Notes notifications on non-stable ChromeOS
 // channels. Used for testing.
@@ -1855,7 +1858,7 @@ BASE_FEATURE(kUseDHCPCD10, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the new `TokenHandleStoreImpl` will be used instead of
 // `TokenHandleUtil`.
-BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseTokenHandleStore, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use the AnnotatedAccountId for mapping between User and BrowserContext
 // (a.k.a. browser's Profile).
@@ -2993,6 +2996,10 @@ bool IsOobePersonalizedOnboardingEnabled() {
 
 bool IsOobePreConsentMetricsEnabled() {
   return base::FeatureList::IsEnabled(kOobePreConsentMetrics);
+}
+
+bool IsOobeSkipArcAppsOn4GbDevicesEnabled() {
+  return base::FeatureList::IsEnabled(kOobeSkipArcAppsOn4GbDevices);
 }
 
 bool IsOobeSoftwareUpdateEnabled() {

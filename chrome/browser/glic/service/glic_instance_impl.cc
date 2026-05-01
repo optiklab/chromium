@@ -18,6 +18,9 @@
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_reporting_controller_factory.h"
+#endif
 #include "chrome/browser/glic/common/future_browser_features.h"
 #include "chrome/browser/glic/fre/glic_fre_controller.h"
 #include "chrome/browser/glic/glic_metrics.h"
@@ -126,6 +129,15 @@ EmbedderKey CreateSidePanelEmbedderKey(tabs::TabInterface* tab) {
   return EmbedderKey(tab);
 }
 
+enterprise_reporting::SaasUsageReportingController*
+GetSaasUsageReportingController(Profile* profile) {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  return enterprise_reporting::SaasUsageReportingControllerFactory::
+      GetForProfile(profile);
+#else
+  return nullptr;
+#endif
+}
 }  // namespace
 
 // Web Contents Observer for the tab bound with its respective glic
@@ -158,8 +170,7 @@ class GlicTabContentsObserver : public content::WebContentsObserver {
       LOG(ERROR) << "Invalid tab_to_bind, null";
       return;
     }
-    if (tab_to_bind->GetBrowserWindowInterface()->GetProfile() !=
-        instance_->profile()) {
+    if (tab_to_bind->GetProfile() != instance_->profile()) {
       LOG(ERROR) << "Invalid tab_to_bind, wrong profile";
       return;
     }
@@ -169,9 +180,7 @@ class GlicTabContentsObserver : public content::WebContentsObserver {
       return;
     }
 
-    if (!tab_to_bind ||
-        (tab_to_bind->GetBrowserWindowInterface()->GetProfile() !=
-         instance_->profile()) ||
+    if (!tab_to_bind || (tab_to_bind->GetProfile() != instance_->profile()) ||
         !GlicInstanceHelper::From(tab_to_bind)) {
       LOG(ERROR) << "Invalid tab_to_bind, null or wrong profile or no "
                     "GlicInstanceHelper in its UnownedUserData";
@@ -229,6 +238,19 @@ void GlicInstanceImpl::NotifyStateChange() {
   }
 }
 
+void GlicInstanceImpl::NotifyConversationTitleChanged() {
+#if BUILDFLAG(IS_ANDROID)
+  // Notify bound helpers that the instance info (title) changed.
+  for (const auto& [key, entry] : embedders_) {
+    if (auto* const* tab_ptr = std::get_if<tabs::TabInterface*>(&key)) {
+      if (auto* helper = GlicInstanceHelper::From(*tab_ptr)) {
+        helper->OnConversationTitleChanged();
+      }
+    }
+  }
+#endif
+}
+
 GlicInstanceImpl::EmbedderEntry::EmbedderEntry() = default;
 GlicInstanceImpl::EmbedderEntry::~EmbedderEntry() = default;
 GlicInstanceImpl::EmbedderEntry::EmbedderEntry(EmbedderEntry&&) = default;
@@ -249,6 +271,7 @@ GlicInstanceImpl::GlicInstanceImpl(
       sharing_manager_coordinator_(profile, this, metrics),
       instance_metrics_(ProfileMetricsServiceFactory::GetForProfile(profile),
                         &sharing_manager_coordinator_.GetActiveSharingManager(),
+                        GetSaasUsageReportingController(profile),
                         profile->GetPrefs()),
       zero_state_suggestions_manager_(
           std::make_unique<GlicZeroStateSuggestionsManager>(
@@ -317,12 +340,19 @@ void GlicInstanceImpl::OnSelectionAreasChanged(int count) {
   instance_metrics_.OnSelectionAreasChanged(count);
 }
 
+void GlicInstanceImpl::OnPolylinePointsChanged(const std::vector<int>& counts) {
+  instance_metrics_.OnPolylinePointsChanged(counts);
+}
+
 std::unique_ptr<WebUIContentsContainer>
 GlicInstanceImpl::CreateWebUIContentsContainer() {
   return coordinator_delegate_->CreateWebUIContentsContainer();
 }
 
 bool GlicInstanceImpl::IsShowing() const {
+  if (HasActiveEmbedder()) {
+    return true;
+  }
   for (const auto& [key, entry] : embedders_) {
     if (entry.embedder && entry.embedder->IsShowing()) {
       return true;
@@ -563,10 +593,9 @@ GlicSharingManager& GlicInstanceImpl::sharing_manager() {
 }
 
 void GlicInstanceImpl::CloseInstanceAndShutdown() {
-  for (auto& observer : state_observers_) {
-    observer.OnInstanceDestroyed();
-  }
   VLOG(1) << "Glic [InstanceImpl] CloseInstanceAndShutdown, id=" << id_.value();
+  will_be_destroyed_callbacks_.Notify(this);
+
   if (actor_task_manager_) {
     // We have to do this here before the ActorKeyedService is shutdown.
     actor_task_manager_->CancelTask();
@@ -586,6 +615,9 @@ void GlicInstanceImpl::RegisterConversation(
   }
 
   conversation_info_ = std::move(info);
+  NotifyConversationTitleChanged();
+  conversation_info_changed_callback_list_.Notify(*conversation_info_);
+
   std::move(callback).Run(std::nullopt);
 }
 
@@ -853,6 +885,17 @@ base::CallbackListSubscription GlicInstanceImpl::RegisterStateChange(
   return state_change_callback_list_.Add(std::move(callback));
 }
 
+base::CallbackListSubscription GlicInstanceImpl::RegisterWillBeDestroyed(
+    DestructionCallback callback) {
+  return will_be_destroyed_callbacks_.Add(std::move(callback));
+}
+
+base::CallbackListSubscription
+GlicInstanceImpl::AddConversationInfoChangedCallback(
+    base::RepeatingCallback<void(const mojom::ConversationInfo&)> callback) {
+  return conversation_info_changed_callback_list_.Add(std::move(callback));
+}
+
 void GlicInstanceImpl::BindTabForTesting(tabs::TabInterface* tab) {
   BindTab(tab, GlicPinTrigger::kContextMenu, true);
 }
@@ -910,6 +953,10 @@ std::optional<std::string> GlicInstanceImpl::conversation_id() const {
     return conversation_info_->conversation_id;
   }
   return std::nullopt;
+}
+
+std::string GlicInstanceImpl::conversation_title() const {
+  return conversation_info_->conversation_title;
 }
 
 glic::mojom::ConversationInfoPtr GlicInstanceImpl::GetConversationInfo() const {
@@ -1024,6 +1071,7 @@ void GlicInstanceImpl::ShowInactiveSidePanelEmbedderFor(
 
 void GlicInstanceImpl::SetActiveEmbedderAndNotifyStateChange(
     std::optional<EmbedderKey> new_key) {
+  maybe_activate_foreground_embedder_timer_.Stop();
   active_embedder_key_ = new_key;
   sharing_manager_coordinator_.UpdateState(GetPanelState().kind,
                                            interaction_mode_);
@@ -1165,19 +1213,17 @@ void GlicInstanceImpl::MaybeDeactivateEmbedder(EmbedderKey key) {
     // TODO: Figure out what else should go into host_.PanelWasClosed() and
     // maybe call it here.
     DeactivateCurrentEmbedder();
-    // Post a delayed task to maybe activate another embedder. This is to avoid
+    // Start a timer to maybe activate another embedder. This is to avoid
     // a race condition where the deactivation of an old embedder (e.g. during a
     // tab/window switch) tries to show the new embedder before the browser's
-    // own tab activation logic has had a chance to run. By posting, we allow
-    // the synchronous activation logic to complete, and then this task will run
-    // and activate a foreground embedder only if one isn't already active.
+    // own tab activation logic has had a chance to run. We allow the
+    // synchronous activation logic to complete, and then this timer will fire.
+    // The timer is canceled if an embedder becomes active before it fires.
     // TODO(crbug.com/451667367): Find another way to do this that doesn't
-    // require a delayed task. Spoiler alert, it might not be possible.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&GlicInstanceImpl::MaybeActivateForegroundEmbedder,
-                       weak_ptr_factory_.GetWeakPtr()),
-        base::Milliseconds(30));
+    // require a timer. Spoiler alert, it might not be possible.
+    maybe_activate_foreground_embedder_timer_.Start(
+        FROM_HERE, base::Milliseconds(30), this,
+        &GlicInstanceImpl::MaybeActivateForegroundEmbedder);
   }
 }
 
@@ -1304,9 +1350,8 @@ void GlicInstanceImpl::OnEmbedderWindowActivationChanged(bool has_focus) {
 }
 
 void GlicInstanceImpl::NotifyPanelStateChanged() {
-  state_observers_.Notify(
-      &PanelStateObserver::PanelStateChanged, GetPanelState(),
-      PanelStateContext{.attached_browser = nullptr, .glic_widget = nullptr});
+  state_observers_.Notify(&PanelStateObserver::PanelStateChanged,
+                          GetPanelState());
 }
 
 mojom::PanelState GlicInstanceImpl::GetPanelState() {

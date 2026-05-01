@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">ទំហំផ្ទុក​របស់អ្នក​ពេញហើយ</translation>
 <translation id="1181037720776840403">ដកចេញ</translation>
 <translation id="1190609913194133056">មជ្ឈមណ្ឌលជូនដំណឹង</translation>
+<translation id="1199631150313925648">បញ្ចូល​ដោយ​ផ្ទាល់ដៃ</translation>
 <translation id="1199963004393929848">ទម្រង់រចនា​ពណ៌បៃតង</translation>
 <translation id="1201402288615127009">បន្ទាប់</translation>
 <translation id="1204075260022434100">{count,plural, =1{បាន​រក្សាទុក​ចំណាំ​ទៅក្នុង "{title}" នៅ​ក្នុង​គណនី {email} របស់​អ្នក}other{បាន​រក្សាទុកចំណាំចំនួន {count} ទៅក្នុង "{title}" នៅក្នុងគណនី {email} របស់អ្នក}}</translation>
@@ -958,6 +959,7 @@
 <translation id="441868831736628555">ការជូនដំណឹងឯកជនភាព</translation>
 <translation id="4420409367264901497">កែ​ចំណាំ</translation>
 <translation id="4425365312778464779">គណនីនេះ​ស្ថិតក្រោម​ការគ្រប់គ្រង</translation>
+<translation id="443008484043213881">ឧបករណ៍</translation>
 <translation id="4430277756566635951">បច្ចុប្បន្ន បានជ្រើសរើស <ph name="EMAIL" />។ ជ្រើសរើស​គណនី។</translation>
 <translation id="4430505936695785931">យក​ពាក្យ​សម្ងាត់​ដែលបាន​រក្សាទុក​នៅក្នុង​កម្មវិធី​ផ្សេងទៀត</translation>
 <translation id="4431224949908513835">ជ្រើសរើសវិធីបង់ប្រាក់ដែលត្រូវបំពេញ។</translation>
@@ -1574,6 +1576,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6476800141292307438">កំពុងបកប្រែទំព័រ​ទៅភាសា<ph name="LANGUAGE" />។ ជម្រើសមាននៅជិត​ផ្នែកខាងក្រោមបំផុតរបស់​អេក្រង់។</translation>
 <translation id="647867789226964031">ប្ដូរ​ពាក្យសម្ងាត់​របស់អ្នក</translation>
 <translation id="6480363549849064919">ការផ្ទៀងផ្ទាត់​កម្មវិធីភ្ញៀវ</translation>
+<translation id="6489174933860678546">បើក​ផ្ទាំងឯកជន ដើម្បីរុករក​នៅលើ​បណ្ដាញ​កាន់តែ​មានលក្ខណៈ​ឯកជន។</translation>
 <translation id="6494931198667773526">ចុងបញ្ចប់</translation>
 <translation id="6503077044568424649">ចូលទៅកាន់ច្រើនបំផុត</translation>
 <translation id="6503763061813913607">ការជូនដំណឹង​អំពី​ការពិនិត្យ​សុវត្ថិភាព</translation>
@@ -1631,6 +1634,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="6640268266988685324">បើក​ផ្ទាំង</translation>
 <translation id="6641465290890659327">ចែករំលែក​ច្បាប់ចម្លង​នៃពាក្យសម្ងាត់​របស់អ្នក</translation>
 <translation id="6642362222295953972">ប្ដូរទៅផ្ទាំង​ដែលមានស្រាប់</translation>
+<translation id="6643016212128521049">ជម្រះ</translation>
 <translation id="6645899968535965230">កូដ QR៖ <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">ពាក្យសម្ងាត់</translation>
 <translation id="6659660757330712663">អ្នកអាច​អូស​របារឧបករណ៍ ដើម្បី​ប្ដូររវាង​ផ្ទាំង។</translation>
@@ -2109,7 +2113,6 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="8319282042900445670">បាន​កំណត់​ការរំលឹក​សម្រាប់​ម៉ោង <ph name="TIME" /> នៅថ្ងៃទី <ph name="DATE" /></translation>
 <translation id="8320212361750431956">សកម្មភាព​ថ្មីៗ</translation>
 <translation id="8325455175867928593">លាក់ "មតិវាយតម្លៃ​ដែល​ផ្អែកលើ​ចំណាប់​អារម្មណ៍​របស់អ្នក"</translation>
-<translation id="8328777765163860529">បិទ​ទាំងអស់</translation>
 <translation id="833647236762414178">បង្កើត រក្សាទុក និង​គ្រប់គ្រង​កូដសម្ងាត់ និង​ពាក្យសម្ងាត់​របស់អ្នក ដើម្បី​ងាយស្រួល​ចូលគេហទំព័រ និង​កម្មវិធី។ <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">បម្រុង​ទុក​ទិន្នន័យ​របស់​អ្នក និង​ប្រើ​វា​នៅ​លើ​ឧបករណ៍​ណា​ក៏បាន។</translation>
 <translation id="8348530355586151720">ចុច​ម៉ឺនុយចុចបី</translation>
@@ -2293,6 +2296,7 @@ Handoff ត្រូវបើកដំណើរការនៅក្នុងផ
 <translation id="8915916167043355778">បិទ​ទាំងអស់</translation>
 <translation id="892185197271200809">អ្នកគ្រប់គ្នា​នឹង​បាត់បង់​សិទ្ធិចូលប្រើ​ក្រុមផ្ទាំង "<ph name="GROUP_NAME" />" ភ្លាមៗ ហើយ​ក្រុមផ្ទាំងនេះនឹង​ត្រូវបានលុប​ចេញពី​ឧបករណ៍​ទាំងអស់</translation>
 <translation id="8923178205567790913">ពាក្យ​សម្ងាត់</translation>
+<translation id="8926498511977337209">រុករក​នៅក្នុង​មុខងារ​ឯកជន</translation>
 <translation id="892776311701544612">ស្វែងយល់បន្ថែម…</translation>
 <translation id="8928133177108699615">កុំព្យូទ័រ</translation>
 <translation id="8928426232677696166">បច្ចុប្បន្ននេះ បានជ្រើសរើស <ph name="EMAIL" /> ដែលស្ថិត​ក្រោម​ការ​គ្រប់គ្រង​របស់ស្ថាប័ន​អ្នក។ ជ្រើសរើស​គណនី។</translation>

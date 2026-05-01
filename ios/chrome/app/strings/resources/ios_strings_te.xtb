@@ -54,6 +54,7 @@
 <translation id="1179890706672152411">మీ స్టోరేజ్ నిండింది</translation>
 <translation id="1181037720776840403">తీసివేయండి</translation>
 <translation id="1190609913194133056">నోటిఫికేషన్ కేంద్రం</translation>
+<translation id="1199631150313925648">మాన్యువల్‌గా ఎంటర్ చేయండి</translation>
 <translation id="1199963004393929848">ఆకుపచ్చ రంగు థీమ్</translation>
 <translation id="1201402288615127009">తర్వాత</translation>
 <translation id="1204075260022434100">{count,plural, =1{బుక్‌మార్క్ మీ {email} ఖాతాలోని "{title}"లో సేవ్ అయ్యింది}other{{count} బుక్‌మార్క్‌లు మీ {email} ఖాతాలోని "{title}"లో సేవ్ అయ్యాయి}}</translation>
@@ -958,6 +959,7 @@
 <translation id="441868831736628555">గోప్యతా నోటీసు</translation>
 <translation id="4420409367264901497">బుక్‌మార్క్‌ను ఎడిట్ చేయండి</translation>
 <translation id="4425365312778464779">ఈ ఖాతా మేనేజ్ చేయబడుతోంది</translation>
+<translation id="443008484043213881">ఉపకరణాలు</translation>
 <translation id="4430277756566635951"><ph name="EMAIL" /> ప్రస్తుతం ఎంచుకోబడింది. ఒక ఖాతాను ఎంచుకోండి.</translation>
 <translation id="4430505936695785931">ఇతర యాప్‌లలో సేవ్ చేసిన పాస్‌వర్డ్‌లను పొందండి</translation>
 <translation id="4431224949908513835">పూరించడం కోసం ఒక పేమెంట్ ఆప్షన్‌ను ఎంచుకోండి.</translation>
@@ -1574,6 +1576,7 @@
 <translation id="6476800141292307438">పేజీని <ph name="LANGUAGE" />లోకి అనువదిస్తోంది. స్క్రీన్ దిగువ భాగానికి దగ్గర్లో ఎంపికలు అందుబాటులో ఉంటాయి.</translation>
 <translation id="647867789226964031">మీ పాస్‌వర్డ్‌లను మార్చండి</translation>
 <translation id="6480363549849064919">క్లయింట్ ప్రామాణీకరణ</translation>
+<translation id="6489174933860678546">వెబ్‌ను మరింత ప్రైవేట్‌గా బ్రౌజ్ చేయడానికి అజ్ఞాత ట్యాబ్‌లను తెరవండి.</translation>
 <translation id="6494931198667773526">ఈవెంట్ ముగింపు సమయం</translation>
 <translation id="6503077044568424649">ఎక్కువగా సందర్శించేవి</translation>
 <translation id="6503763061813913607">సేఫ్టీ చెక్ నోటిఫికేషన్‌లు</translation>
@@ -1631,6 +1634,7 @@
 <translation id="6640268266988685324">తెరిచి ఉన్న ట్యాబ్</translation>
 <translation id="6641465290890659327">మీ పాస్‌వర్డ్ కాపీని షేర్ చేయండి</translation>
 <translation id="6642362222295953972">ప్రస్తుత ట్యాబ్‌కు మారు</translation>
+<translation id="6643016212128521049">క్లియర్ చేయండి</translation>
 <translation id="6645899968535965230">QR కోడ్: <ph name="PAGE_TITLE" /></translation>
 <translation id="6657585470893396449">పాస్‌వర్డ్</translation>
 <translation id="6659660757330712663">మీరు ట్యాబ్‌ల మధ్య స్విచ్ అవ్వడానికి టూల్‌బార్‌ను స్వైప్ చేయవచ్చు.</translation>
@@ -2109,7 +2113,6 @@
 <translation id="8319282042900445670"><ph name="DATE" />న, <ph name="TIME" />కి రిమైండర్ సెట్ చేయబడింది</translation>
 <translation id="8320212361750431956">ఇటీవలి యాక్టివిటీ</translation>
 <translation id="8325455175867928593">"మీ ఆసక్తుల ఆధారంగా రివ్యూలు" దాచండి</translation>
-<translation id="8328777765163860529">అన్నింటినీ మూసివేయండి</translation>
 <translation id="833647236762414178">సైట్‌లు, యాప్‌లలో సులభంగా సైన్ ఇన్ చేసేందుకు మీ పాస్‌వర్డ్‌లు, పాస్-కీలను క్రియేట్ చేయండి, సేవ్ చేయండి, మేనేజ్ చేయండి. <ph name="BEGIN_LINK" />మరింత తెలుసుకోండి<ph name="END_LINK" /></translation>
 <translation id="8343993175958086504">మీ అంశాలను బ్యాకప్ చేసి, వాటిని ఏ పరికరంలో అయినా ఉపయోగించండి.</translation>
 <translation id="8348530355586151720">3 చుక్కల మెనూను ట్యాప్ చేయండి</translation>
@@ -2293,6 +2296,7 @@
 <translation id="8915916167043355778">అన్నింటినీ మూసివేయండి</translation>
 <translation id="892185197271200809">అందరూ వెంటనే "<ph name="GROUP_NAME" />" ట్యాబ్ గ్రూప్‌నకు యాక్సెస్‌ను కోల్పోతారు, అది మీ పరికరాలన్నింటి నుండి తొలగించబడుతుంది</translation>
 <translation id="8923178205567790913">పాస్‌వర్డ్‌లు</translation>
+<translation id="8926498511977337209">అజ్ఞాతంలో బ్రౌజ్ చేయండి</translation>
 <translation id="892776311701544612">మరింత తెలుసుకోండి…</translation>
 <translation id="8928133177108699615">డెస్క్‌టాప్</translation>
 <translation id="8928426232677696166">ప్రస్తుతం <ph name="EMAIL" />, ప్రస్తుతంఎంపిక చేయబడింది, ఇది మీ సంస్థ ద్వారా మేనేజ్ చేయబడుతోంది. ఒక ఖాతాను ఎంచుకోండి.</translation>

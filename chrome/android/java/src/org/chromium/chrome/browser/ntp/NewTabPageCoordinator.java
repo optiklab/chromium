@@ -52,12 +52,15 @@ import org.chromium.chrome.browser.magic_stack.ModuleDelegateHost;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.ntp.NewTabPage.OnSearchBoxScrollListener;
-import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
+import org.chromium.chrome.browser.ntp.search.NtpSearchBox;
+import org.chromium.chrome.browser.ntp.search.NtpSearchBoxFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
+import org.chromium.chrome.browser.omnibox.SearchEngineUtils.SearchBoxHintTextObserver;
+import org.chromium.chrome.browser.omnibox.SearchEngineUtils.SearchEngineIconObserver;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.setup_list.SetupListManager;
 import org.chromium.chrome.browser.setup_list.SetupListModuleUtils;
@@ -133,14 +136,14 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private final boolean mEnableLogs;
 
     private @Nullable LogoCoordinator mLogoCoordinator;
-    private @Nullable SearchBoxCoordinator mSearchBoxCoordinator;
+    private @Nullable NtpSearchBox mSearchBoxCoordinator;
     private @Nullable MostVisitedTilesCoordinator mMostVisitedTilesCoordinator;
     private @Nullable OnSearchBoxScrollListener mSearchBoxScrollListener;
     private @Nullable UiConfig mUiConfig;
     private @Nullable DisplayStyleObserver mDisplayStyleObserver;
     private CallbackController mCallbackController = new CallbackController();
-    private SearchEngineUtils.@Nullable SearchEngineIconObserver mSearchEngineIconObserver;
-    private SearchEngineUtils.@Nullable SearchBoxHintTextObserver mSearchBoxHintTextObserver;
+    private @Nullable SearchEngineIconObserver mSearchEngineIconObserver;
+    private @Nullable SearchBoxHintTextObserver mSearchBoxHintTextObserver;
 
     private @Nullable HomeModulesCoordinator mHomeModulesCoordinator;
     private @Nullable ViewGroup mHomeModulesContainer;
@@ -331,13 +334,16 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
 
         mSearchBoxCoordinator =
-                new SearchBoxCoordinator(
+                NtpSearchBoxFactory.createSearchBox(
                         mActivity,
                         mNewTabPageLayout,
                         mIsTablet,
                         lifecycleDispatcher,
                         mProfile.isOffTheRecord(),
-                        mWindowAndroid);
+                        mWindowAndroid,
+                        mManager,
+                        mProfile);
+        mModel.set(NewTabPageLayoutProperties.SEARCH_BOX_VIEW, mSearchBoxCoordinator.getView());
 
         updateSearchBoxTwoSideMargin();
         initializeLogoCoordinator();
@@ -351,10 +357,9 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         setSearchBoxTextAppearance();
 
         initializeSearchBoxTextView();
-        initializeVoiceSearchButton();
-        initializeLensButton();
 
         initializeComposeplateFlags(mProfile);
+        mSearchBoxCoordinator.setIsFuseboxEligible(Boolean.TRUE.equals(mIsComposeplateEnabled));
         if (assumeNonNull(mIsComposeplateEnabled)) {
             initializeComposeplate();
         }
@@ -424,8 +429,6 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         TraceEvent.begin(TAG + ".initializeSearchBoxTextView()");
 
         assumeNonNull(mSearchBoxCoordinator);
-        mSearchBoxCoordinator.setSearchBoxClickListener(
-                v -> mManager.focusSearchBox(false, AutocompleteRequestType.SEARCH, null));
 
         // @TODO(crbug.com/41492572): Add test case for search box OnDragListener.
         mSearchBoxCoordinator.setSearchBoxDragListener(
@@ -454,7 +457,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
                     public void afterTextChanged(Editable s) {
                         if (s.length() == 0 || mSearchBoxCoordinator == null) return;
                         mManager.focusSearchBox(
-                                false, AutocompleteRequestType.SEARCH, s.toString());
+                                false, AutocompleteRequestType.SEARCH, false, s.toString());
                         mSearchBoxCoordinator.setSearchText("");
                     }
                 });
@@ -482,28 +485,6 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
             mSearchBoxCoordinator.setSearchBoxTextAppearance(
                     R.style.TextAppearance_FakeSearchBoxTextMedium);
         }
-    }
-
-    private void initializeVoiceSearchButton() {
-        TraceEvent.begin(TAG + ".initializeVoiceSearchButton()");
-        View.OnClickListener voiceSearchButtonClickListener =
-                v -> mManager.focusSearchBox(true, AutocompleteRequestType.SEARCH, null);
-        assumeNonNull(mSearchBoxCoordinator)
-                .addVoiceSearchButtonClickListener(voiceSearchButtonClickListener);
-        TraceEvent.end(TAG + ".initializeVoiceSearchButton()");
-    }
-
-    private void initializeLensButton() {
-        TraceEvent.begin(TAG + ".initializeLensButton()");
-        View.OnClickListener lensButtonClickListener =
-                v -> {
-                    if (mSearchBoxCoordinator == null) return;
-
-                    LensMetrics.recordClicked(LensEntryPoint.NEW_TAB_PAGE);
-                    mSearchBoxCoordinator.startLens(LensEntryPoint.NEW_TAB_PAGE);
-                };
-        assumeNonNull(mSearchBoxCoordinator).addLensButtonClickListener(lensButtonClickListener);
-        TraceEvent.end(TAG + ".initializeLensButton()");
     }
 
     private void initializeComposeplateFlags(Profile profile) {
@@ -541,7 +522,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
                 && OmniboxFeatures.sRedirectComposeplateButton.getValue()
                 && !mIsTablet
                 && mIsComposeplatePolicyEnabled) {
-            mManager.focusSearchBox(false, AutocompleteRequestType.AI_MODE, null);
+            mManager.focusSearchBox(false, AutocompleteRequestType.AI_MODE, false, null);
             return;
         }
 
@@ -644,10 +625,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
         mMostVisitedTilesCoordinator.initWithNative(
                 profile, mManager, tileGroupDelegate, touchEnabledDelegate);
-
-        if (ChromeFeatureList.sNewTabPageCustomizationForMvt.isEnabled()) {
-            mMostVisitedTilesCoordinator.updateMvtVisibility();
-        }
+        mMostVisitedTilesCoordinator.updateMvtVisibility();
     }
 
     private void initializeSigninPromoCoordinator() {
@@ -1302,6 +1280,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
 
         if (mSearchBoxCoordinator != null) {
+            mModel.set(NewTabPageLayoutProperties.SEARCH_BOX_VIEW, null);
             mSearchBoxCoordinator.destroy();
             mSearchBoxCoordinator = null;
         }
@@ -1484,6 +1463,10 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
     public @Nullable HomeModulesCoordinator getHomeModulesCoordinatorForTesting() {
         return mHomeModulesCoordinator;
+    }
+
+    public @Nullable NtpSearchBox getSearchBoxCoordinatorForTesting() {
+        return mSearchBoxCoordinator;
     }
 
     public PropertyModel getModelForTesting() {

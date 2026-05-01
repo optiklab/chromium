@@ -36,23 +36,32 @@ void ContentAnnotatorInternalsPageHandler::OnContentAnnotationsAdded(
     history::VisitID visit_id,
     const accessibility_annotator::AccessibilityAnnotatorBackend::
         ContentAnnotationsData& annotation_data) {
+  NotifyPageWithAnnotations();
+}
+
+void ContentAnnotatorInternalsPageHandler::OnContentAnnotationsDeleted(
+    base::span<const history::VisitID> visit_ids) {
+  NotifyPageWithAnnotations();
+}
+
+void ContentAnnotatorInternalsPageHandler::OnContentAnnotationsCleared() {
+  page_->OnContentAnnotationsCleared();
+}
+
+void ContentAnnotatorInternalsPageHandler::NotifyPageWithAnnotations() {
   accessibility_annotator::AccessibilityAnnotatorBackend* backend =
       AccessibilityAnnotatorBackendFactory::GetForProfile(profile_);
   if (!backend) {
     return;
   }
-  page_->OnContentAnnotationsAdded(backend->GetDebugUICacheData());
-}
-
-void ContentAnnotatorInternalsPageHandler::OnContentAnnotationsDeleted(
-    base::span<const history::VisitID> visit_ids) {
-  // TODO(crbug.com/496384941): Implement this function when data is persisted
-  // and can be deleted via Chrome History / TTL.
-}
-
-void ContentAnnotatorInternalsPageHandler::OnContentAnnotationsCleared() {
-  // TODO(crbug.com/496384941): Implement this function when data is persisted
-  // and can be deleted via Chrome History / TTL.
+  backend->GetAnnotationsForDebugUI(base::BindOnce(
+      [](base::WeakPtr<ContentAnnotatorInternalsPageHandler> handler,
+         base::Value data) {
+        if (handler) {
+          handler->page_->OnContentAnnotationsChanged(std::move(data));
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ContentAnnotatorInternalsPageHandler::GetAnnotatedContent(
@@ -63,7 +72,7 @@ void ContentAnnotatorInternalsPageHandler::GetAnnotatedContent(
     std::move(callback).Run(base::Value());
     return;
   }
-  std::move(callback).Run(backend->GetDebugUICacheData());
+  backend->GetAnnotationsForDebugUI(std::move(callback));
 }
 
 void ContentAnnotatorInternalsPageHandler::ClearAnnotatedContent(
@@ -74,8 +83,7 @@ void ContentAnnotatorInternalsPageHandler::ClearAnnotatedContent(
     std::move(callback).Run(false);
     return;
   }
-  backend->ClearContentAnnotationsCache();
-  std::move(callback).Run(true);
+  backend->ClearAllContentAnnotations(std::move(callback));
 }
 
 void ContentAnnotatorInternalsPageHandler::DeleteAnnotatedContent(
@@ -87,9 +95,7 @@ void ContentAnnotatorInternalsPageHandler::DeleteAnnotatedContent(
     std::move(callback).Run(false);
     return;
   }
-
-  backend->RemoveContentAnnotationsCacheData(visit_ids);
-  std::move(callback).Run(true);
+  backend->DeleteContentAnnotations(visit_ids, std::move(callback));
 }
 
 }  // namespace content_annotator_internals

@@ -50,7 +50,6 @@ class GlicWidget;
 class GlicInstanceCoordinator {
  public:
   using StateObserver = PanelStateObserver;
-  using PanelStateContext = ::glic::PanelStateContext;
   GlicInstanceCoordinator(const GlicInstanceCoordinator&) = delete;
   GlicInstanceCoordinator& operator=(const GlicInstanceCoordinator&) = delete;
   GlicInstanceCoordinator() = default;
@@ -110,8 +109,6 @@ class GlicInstanceCoordinator {
   // Reloads the glic web contents or the FRE's web contents (depending on
   // which is currently visible).
   virtual void Reload(content::RenderFrameHost* render_frame_host) = 0;
-
-  virtual Profile* profile() = 0;
 
   using ActiveInstanceChangedCallback =
       base::RepeatingCallback<void(GlicInstance* new_instance)>;

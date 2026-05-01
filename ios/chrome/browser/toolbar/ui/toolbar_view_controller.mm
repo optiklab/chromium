@@ -323,7 +323,6 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   self.view.accessibilityIdentifier = kToolbarViewIdentifier;
 
   [self createView];
-  [self setUpBannerPromo];
   [self setUpHierarchy];
 
   [self updateToolbarElementsVisibility];
@@ -339,6 +338,12 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 - (void)viewWillLayoutSubviews {
   [super viewWillLayoutSubviews];
   [self updateLayoutConstraints];
+}
+
+- (void)viewSafeAreaInsetsDidChange {
+  [super viewSafeAreaInsetsDidChange];
+  _bannerPromoBackgroundHeightConstraint.constant = [self
+      bannerPromoBackgroundHeightForFullscreenProgress:_fullscreenProgress];
 }
 
 #pragma mark - PopupMenuUIUpdating
@@ -516,7 +521,9 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
   if (_bannerPromoVisible) {
     return;
   }
+  [self setUpBannerPromoIfNecessary];
   _bannerPromoVisible = YES;
+  _bannerPromoBackground.alpha = 1;
 
   [self updateBannerConstraints];
 
@@ -591,7 +598,9 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 
   CGFloat alphaValue = fmax(progress * 2 - 1, 0);
   _tabGroupIndicatorView.alpha = alphaValue;
-  _bannerPromoBackground.alpha = alphaValue;
+  if (_bannerPromoVisible) {
+    _bannerPromoBackground.alpha = alphaValue;
+  }
 
   CGFloat offset = 0;
   if (!IsRegularXRegularSizeClass(self.traitCollection) &&
@@ -663,6 +672,7 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
 - (void)hideBannerPromoCompletionBlock {
   [NSLayoutConstraint deactivateConstraints:_bannerPromoAboveConstraints];
   [NSLayoutConstraint deactivateConstraints:_bannerPromoBelowConstraints];
+  _bannerPromoBackground.alpha = 0;
   [self.view.superview layoutIfNeeded];
 }
 
@@ -896,13 +906,17 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
              forControlEvents:UIControlEventTouchUpInside];
 }
 
-// Sets up the banner promo view and its constraints.
-- (void)setUpBannerPromo {
+// Sets up the banner promo view and its constraints if not already done.
+- (void)setUpBannerPromoIfNecessary {
+  if (_bannerPromoBackground) {
+    return;
+  }
   _bannerPromoBackground = [[UIView alloc] init];
   _bannerPromoBackground.translatesAutoresizingMaskIntoConstraints = NO;
   _bannerPromoBackground.backgroundColor =
       [UIColor colorNamed:@"banner_promo_background_color"];
   _bannerPromoBackground.clipsToBounds = YES;
+  _bannerPromoBackground.alpha = 0;
   [self.view addSubview:_bannerPromoBackground];
 
   _bannerPromo = [[BannerPromoView alloc] init];

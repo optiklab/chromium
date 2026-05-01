@@ -67,8 +67,7 @@ enum class GlicPrewarmingChecksResult;
 // possible via enterprise policy). This is required on disabled profiles
 // since pieces of this service are the ones that monitor this runtime
 // preference for changes and cause the UI to respond to it.
-class GlicKeyedService : public KeyedService,
-                         public base::SupportsUserData {
+class GlicKeyedService : public KeyedService, public base::SupportsUserData {
  public:
   explicit GlicKeyedService(
       Profile* profile,
@@ -112,6 +111,11 @@ class GlicKeyedService : public KeyedService,
   virtual void InvokeWithAutoSubmit(
       InvokeWithAutoSubmitPasskey auto_submit_passkey,
       GlicInvokeOptions options);
+
+  virtual void InvokeWithAutoSubmit(
+      InvokeWithAutoSubmitPasskey auto_submit_passkey,
+      GlicInvokeOptions options,
+      GlicInvokeWithAutoSubmitOptions auto_submit_options);
 
   virtual void Invoke(GlicInvokeOptions options);
 
@@ -202,9 +206,9 @@ class GlicKeyedService : public KeyedService,
       base::RepeatingClosure callback);
 
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
-  void CaptureRegion(
-      tabs::TabInterface* tab,
-      mojo::PendingRemote<mojom::CaptureRegionObserver> observer);
+  void CaptureRegion(tabs::TabInterface* tab,
+                     mojo::PendingRemote<mojom::CaptureRegionObserver> observer,
+                     mojom::GetTabContextOptionsPtr options = nullptr);
   void DeleteCapturedRegion(tabs::TabInterface* tab,
                             const base::UnguessableToken& id);
 #endif
@@ -244,9 +248,6 @@ class GlicKeyedService : public KeyedService,
   // null if there is none. `bwi` can be null if preloaded with no browser open.
   GlicInstance* GetInstanceForActiveTab(BrowserWindowInterface* bwi);
 
-  // Returns true if the media request ID belongs to any Glic instance.
-  bool IsMediaRequestFromGlic(const std::string& request_id) const;
-
   // Get the GlicInstance for a provided tab, or null if there is none.
   virtual GlicInstance* GetInstanceForTab(tabs::TabInterface* tab);
 
@@ -266,9 +267,8 @@ class GlicKeyedService : public KeyedService,
   base::CallbackListSubscription AddActOnWebCapabilityChangedCallback(
       ActOnWebCapabilityChangedCallback callback);
 
-  GlicActorPolicyChecker& actor_policy_checker() {
-    return *actor_policy_checker_;
-  }
+  // Virtual for testing.
+  virtual GlicActorPolicyChecker& actor_policy_checker();
 
  private:
   // A helper function to route GetZeroStateSuggestionsForFocusedTabCallback

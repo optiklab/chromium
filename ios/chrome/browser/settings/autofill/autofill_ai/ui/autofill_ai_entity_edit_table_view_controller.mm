@@ -284,6 +284,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self.mutator didChangeDate:date forItem:item];
 }
 
+- (void)didDismissDateItem:(AutofillAIEntityEditDateItem*)item {
+  [self.view endEditing:YES];
+}
+
 #pragma mark - Actions
 
 - (void)handleTapOutside:(UITapGestureRecognizer*)gesture {
@@ -461,11 +465,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (BOOL)textField:(UITextField*)textField
     shouldChangeCharactersInRange:(NSRange)range
                 replacementString:(NSString*)string {
-  // If the input view is a UIDatePicker, block all direct keyboard input.
-  if ([textField.inputView isKindOfClass:[UIDatePicker class]]) {
-    return NO;
-  }
-  return YES;
+  // If the text field has a custom input view, block all direct keyboard input.
+  return !textField.inputView;
 }
 
 #pragma mark - TableViewLinkHeaderFooterItemDelegate

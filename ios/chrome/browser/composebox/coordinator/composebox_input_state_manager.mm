@@ -19,6 +19,7 @@
 #import "components/search_engines/template_url_service.h"
 #import "components/search_engines/util.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_constants.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
 #import "ios/chrome/browser/composebox/public/features.h"
@@ -30,8 +31,10 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
+#import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_id.h"
+#import "ui/base/l10n/l10n_util.h"
 
 namespace {
 
@@ -92,9 +95,46 @@ std::optional<ComposeboxMode> ModeForToolMode(omnibox::ToolMode tool_mode) {
   }
 }
 
+// Returns the tool mode for the given composebox mode.
+omnibox::ToolMode ToolModeForComposeboxMode(ComposeboxMode mode,
+                                            BOOL hasImage) {
+  switch (mode) {
+    case ComposeboxMode::kCanvas:
+      return omnibox::ToolMode::TOOL_MODE_CANVAS;
+    case ComposeboxMode::kDeepSearch:
+      return omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH;
+    case ComposeboxMode::kImageGeneration:
+      return hasImage ? omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD
+                      : omnibox::ToolMode::TOOL_MODE_IMAGE_GEN;
+    case ComposeboxMode::kAIM:
+    case ComposeboxMode::kRegularSearch:
+      return omnibox::ToolMode::TOOL_MODE_UNSPECIFIED;
+  }
+}
+
+// Returns the placeholder text for regular search.
+NSString* CustomRegularSearchHintText(BOOL isFuseboxEligible,
+                                      TemplateURLService* templateURLService) {
+  if (!IsAIOmniboxAskPlaceholderEnabled() || !templateURLService ||
+      !isFuseboxEligible) {
+    // No custom placeholder text.
+    return nil;
+  }
+  const TemplateURL* defaultSearchProvider =
+      templateURLService->GetDefaultSearchProvider();
+  if (!defaultSearchProvider) {
+    return nil;
+  }
+
+  return l10n_util::GetNSStringF(
+      IDS_OMNIBOX_EMPTY_ASK_HINT_WITH_DSE_NAME,
+      defaultSearchProvider->AdjustedShortNameForLocaleDirection());
+}
+
 // Returns the server strings object from a given input state.
 ComposeboxStrings* ServerStringsFromInputState(
-    const contextual_search::InputState& input_state) {
+    const contextual_search::InputState& input_state,
+    NSString* customRegularSearchHintText) {
   std::unordered_map<ComposeboxMode, ComposeboxStringBundle*> tool_mapping;
   for (const omnibox::ToolConfig& tool_config : input_state.tool_configs) {
     NSString* menuLabel = base::SysUTF8ToNSString(tool_config.menu_label());
@@ -133,19 +173,27 @@ ComposeboxStrings* ServerStringsFromInputState(
         base::SysUTF8ToNSString(input_state.tools_section_config->header());
   }
 
-  return [[ComposeboxStrings alloc] initWithToolMapping:tool_mapping
-                                           modelMapping:model_mapping
-                                     modelSectionHeader:modelSectionHeader
-                                     toolsSectionHeader:toolsSectionHeader];
+  return [[ComposeboxStrings alloc]
+        initWithToolMapping:tool_mapping
+               modelMapping:model_mapping
+         modelSectionHeader:modelSectionHeader
+         toolsSectionHeader:toolsSectionHeader
+      regularSearchHintText:customRegularSearchHintText];
 }
 
 }  // namespace
+
+@interface ComposeboxInputStateManager () <ComposeboxModeObserver>
+@end
 
 @implementation ComposeboxInputStateManager {
   // The entrypoint from which the composebox was opened.
   ComposeboxEntrypoint _entrypoint;
   // The mode holder to read the active mode.
   ComposeboxModeHolder* _modeHolder;
+  // The active model. This is different from omnibox::ModelMode that doesn't
+  // support unselected state.
+  ComposeboxModelOption _activeModel;
 
   // The web state list of the browser.
   raw_ptr<WebStateList> _webStateList;
@@ -167,7 +215,7 @@ ComposeboxStrings* ServerStringsFromInputState(
   // The underlying C++ model that manages the state.
   std::unique_ptr<contextual_search::InputStateModel> _inputStateModel;
   // The cached current input state.
-  contextual_search::InputState _inputState;
+  std::optional<contextual_search::InputState> _inputState;
   // Subscription for state updates from the model.
   base::CallbackListSubscription _inputStateSubscription;
   // Cached server strings.
@@ -194,6 +242,7 @@ ComposeboxStrings* ServerStringsFromInputState(
     _cachedStrings = [ComposeboxStrings localFallbackStrings];
     _webStateList = webStateList;
     _modeHolder = modeHolder;
+    [_modeHolder addObserver:self];
     _prefService = prefService;
     _aimEligibilityService = aimEligibilityService;
     _identityManager = identityManager;
@@ -204,6 +253,7 @@ ComposeboxStrings* ServerStringsFromInputState(
     }
     _entrypoint = entrypoint;
     _isIncognito = isIncognito;
+    _activeModel = ComposeboxModelOption::kNone;
   }
   return self;
 }
@@ -212,6 +262,7 @@ ComposeboxStrings* ServerStringsFromInputState(
   self.items = nil;
   _inputStateSubscription = {};
   _inputStateModel.reset();
+  _inputState.reset();
   _cachedStrings = nil;
   _webStateList = nullptr;
   _prefService = nullptr;
@@ -219,20 +270,13 @@ ComposeboxStrings* ServerStringsFromInputState(
   _identityManager = nullptr;
   _templateURLService = nullptr;
   _sessionHandle.reset();
+  [_modeHolder removeObserver:self];
   _modeHolder = nil;
 }
 
 - (void)setSearchboxConfig:(const omnibox::SearchboxConfig&)searchboxConfig {
   if (!_sessionHandle) {
     return;
-  }
-
-  std::optional<contextual_search::InputState> preselectionState;
-  // Only preselect when there was already a input state model created.
-  // Otherwise it's safe to assume it is the first time a searchbox config is
-  // loaded.
-  if (_inputStateModel) {
-    preselectionState = _inputState;
   }
 
   BOOL has_primary_account =
@@ -248,19 +292,14 @@ ComposeboxStrings* ServerStringsFromInputState(
   // the state.
   _inputStateModel->Initialize();
 
-  if (preselectionState.has_value()) {
-    // It is safe to apply preselection immediately because the state is already
-    // updated.
-    [self applyPreselection:*preselectionState
-          forReferenceState:_inputStateModel->GetInputState()];
-  }
-}
+  // iOS doesn't rely on the active hint text from `_inputState`, strings only
+  // changes when `searchboxConfig` is updated.
+  NSString* customRegularSearchHintText =
+      CustomRegularSearchHintText([self isEligibleToAIM], _templateURLService);
+  _cachedStrings = ServerStringsFromInputState(
+      _inputStateModel->GetInputState(), customRegularSearchHintText);
 
-- (omnibox::ToolMode)activeTool {
-  if (_inputStateModel) {
-    return _inputStateModel->GetInputState().active_tool;
-  }
-  return omnibox::TOOL_MODE_UNSPECIFIED;
+  [self.delegate inputStateManagerDidUpdateUIState:self];
 }
 
 - (ComposeboxModelOption)activeModel {
@@ -272,18 +311,22 @@ ComposeboxStrings* ServerStringsFromInputState(
       _inputStateModel->GetInputState().active_model);
 }
 
-- (void)setActiveTool:(omnibox::ToolMode)activeTool {
+/// Sets the `activeTool` mode in the input state model.
+- (void)setActiveToolInInputState:(omnibox::ToolMode)activeTool {
   if (!_inputStateModel) {
     return;
   }
 
-  if (_inputStateModel->GetInputState().active_tool != activeTool) {
-    contextual_search::ContextualSearchMetricsRecorder* recorder =
-        _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
-    if (recorder) {
-      recorder->RecordToolMode(activeTool);
-    }
+  if (_inputStateModel->GetInputState().active_tool == activeTool) {
+    return;
   }
+
+  contextual_search::ContextualSearchMetricsRecorder* recorder =
+      _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
+  if (recorder) {
+    recorder->RecordToolMode(activeTool);
+  }
+
   _inputStateModel->setActiveTool(activeTool);
 }
 
@@ -293,19 +336,29 @@ ComposeboxStrings* ServerStringsFromInputState(
     return;
   }
 
-  omnibox::ModelMode requestedModelMode =
-      ModelModeForModelOption(modelOption, _inputState);
-
-  if (_inputState.active_model == requestedModelMode) {
-    return;
+  // If model is not valid, fallback to the default model;
+  if (![self canSelectModel:modelOption]) {
+    modelOption = [self defaultModel];
   }
 
-  _inputStateModel->setActiveModel(requestedModelMode);
+  if (modelOption == _activeModel) {
+    return;
+  }
+  _activeModel = modelOption;
 
-  contextual_search::ContextualSearchMetricsRecorder* recorder =
-      _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
-  if (explicitUserAction && recorder) {
-    recorder->RecordModelMode(requestedModelMode);
+  [self setActiveModelInInputState:modelOption
+                explicitUserAction:explicitUserAction];
+
+  [self.delegate inputStateManagerDidUpdateUIState:self];
+
+  // Update mode on model change.
+
+  // Only when the user explicitly picked the advanced model in regular mode
+  // do the switch to AIM.
+  BOOL switchToAIM = explicitUserAction && _modeHolder.isRegularSearch;
+  if (switchToAIM) {
+    _modeHolder.mode = ComposeboxMode::kAIM;
+    return;
   }
 }
 
@@ -322,16 +375,27 @@ ComposeboxStrings* ServerStringsFromInputState(
   }
 }
 
+- (void)onItemsUpdated {
+  // Tool Mode has a different value depending on `items.hasImage`. Update if
+  // needed.
+  ComposeboxMode activeMode = [self activeMode];
+  if (activeMode == ComposeboxMode::kImageGeneration) {
+    [self setActiveToolInInputState:ToolModeForComposeboxMode(
+                                        activeMode, self.items.hasImage)];
+  }
+}
+
 - (void)recordInputStateOnSubmission {
   contextual_search::ContextualSearchMetricsRecorder* recorder =
       _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
-  if (recorder && _inputStateModel) {
-    std::vector<omnibox::InputType> active_input_types =
-        contextual_search::InputStateModel::GetCurrentInputTypes(
-            _sessionHandle.get());
-    recorder->RecordModesOnSubmission(
-        _inputState.active_tool, _inputState.active_model, active_input_types);
+  if (!recorder || !_inputStateModel || !_inputState.has_value()) {
+    return;
   }
+  std::vector<omnibox::InputType> active_input_types =
+      contextual_search::InputStateModel::GetCurrentInputTypes(
+          _sessionHandle.get());
+  recorder->RecordModesOnSubmission(
+      _inputState->active_tool, _inputState->active_model, active_input_types);
 }
 
 - (void)
@@ -341,17 +405,17 @@ ComposeboxStrings* ServerStringsFromInputState(
                                              mimeTypes {
   contextual_search::ContextualSearchMetricsRecorder* recorder =
       _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
-  if (recorder) {
-    recorder->RecordFileTypesOnSessionEnd(mimeTypes, inNavigation);
-
-    if (_inputStateModel) {
-      recorder->RecordActiveModesOnSessionEnd(
-          _inputStateModel->GetInputState().active_tool,
-          _inputStateModel->GetInputState().active_model, inNavigation);
-    }
-
-    recorder->RecordNavigationResult(inNavigation);
+  if (!recorder) {
+    return;
   }
+  recorder->RecordFileTypesOnSessionEnd(mimeTypes, inNavigation);
+
+  if (_inputStateModel && _inputState.has_value()) {
+    recorder->RecordActiveModesOnSessionEnd(
+        _inputState->active_tool, _inputState->active_model, inNavigation);
+  }
+
+  recorder->RecordNavigationResult(inNavigation);
 }
 
 - (BOOL)isEligibleToAIM {
@@ -399,6 +463,17 @@ ComposeboxStrings* ServerStringsFromInputState(
   } else {
     return [self isAttachmentDisabledLocally:attachmentOption];
   }
+}
+
+/// Returns the default model for the active mode.
+- (ComposeboxModelOption)defaultModel {
+  if ([self activeMode] == ComposeboxMode::kRegularSearch) {
+    return ComposeboxModelOption::kNone;
+  }
+  if (!_inputState.has_value()) {
+    return ComposeboxModelOption::kNone;
+  }
+  return ModelOptionForModelMode(_inputState->GetDefaultModel());
 }
 
 /// Returns the default mode/tool that is implicit in the context. The tool is
@@ -494,9 +569,13 @@ ComposeboxStrings* ServerStringsFromInputState(
     return NO;
   }
 
+  if (!_inputState.has_value()) {
+    return NO;
+  }
+
   omnibox::ModelMode modelMode =
-      ModelModeForModelOption(modelOption, _inputState);
-  return std::ranges::contains(_inputState.allowed_models, modelMode);
+      ModelModeForModelOption(modelOption, _inputState.value());
+  return std::ranges::contains(_inputState->allowed_models, modelMode);
 }
 
 - (BOOL)isModelDisabled:(ComposeboxModelOption)modelOption {
@@ -506,9 +585,13 @@ ComposeboxStrings* ServerStringsFromInputState(
     return NO;
   }
 
+  if (!_inputState.has_value()) {
+    return NO;
+  }
+
   omnibox::ModelMode modelMode =
-      ModelModeForModelOption(modelOption, _inputState);
-  return std::ranges::contains(_inputState.disabled_models, modelMode);
+      ModelModeForModelOption(modelOption, _inputState.value());
+  return std::ranges::contains(_inputState->disabled_models, modelMode);
 }
 
 - (BOOL)canAddMoreAttachments {
@@ -538,15 +621,19 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 - (NSUInteger)remainingNumberOfImagesAllowed {
   NSUInteger remainingAttachmentCapacity = [self remainingAttachmentCapacity];
-  if (EnableComposeboxServerSideState()) {
-    auto limits = _inputState.max_inputs_by_type;
-    auto type = omnibox::InputType::INPUT_TYPE_LENS_IMAGE;
-    if (limits.count(type)) {
-      int serverLimit = limits[type];
-      NSUInteger remainingSlots =
-          std::max(0, serverLimit - static_cast<int>(self.items.imagesCount));
-      return MIN(remainingSlots, remainingAttachmentCapacity);
-    }
+  if (!EnableComposeboxServerSideState()) {
+    return remainingAttachmentCapacity;
+  }
+  if (!_inputState.has_value()) {
+    return remainingAttachmentCapacity;
+  }
+  auto limits = _inputState->max_inputs_by_type;
+  auto type = omnibox::InputType::INPUT_TYPE_LENS_IMAGE;
+  if (limits.count(type)) {
+    int serverLimit = limits[type];
+    NSUInteger remainingSlots =
+        std::max(0, serverLimit - static_cast<int>(self.items.imagesCount));
+    return MIN(remainingSlots, remainingAttachmentCapacity);
   }
   return remainingAttachmentCapacity;
 }
@@ -570,13 +657,17 @@ ComposeboxStrings* ServerStringsFromInputState(
   NSUInteger capacityForTabs =
       remainingAttachmentCapacity + self.items.tabsCount;
 
-  if (EnableComposeboxServerSideState()) {
-    auto limits = _inputState.max_inputs_by_type;
-    auto type = omnibox::InputType::INPUT_TYPE_BROWSER_TAB;
-    if (limits.count(type)) {
-      NSUInteger serverLimit = static_cast<NSUInteger>(limits[type]);
-      return MIN(serverLimit, capacityForTabs);
-    }
+  if (!EnableComposeboxServerSideState()) {
+    return capacityForTabs;
+  }
+  if (!_inputState.has_value()) {
+    return capacityForTabs;
+  }
+  auto limits = _inputState->max_inputs_by_type;
+  auto type = omnibox::InputType::INPUT_TYPE_BROWSER_TAB;
+  if (limits.count(type)) {
+    NSUInteger serverLimit = static_cast<NSUInteger>(limits[type]);
+    return MIN(serverLimit, capacityForTabs);
   }
 
   return capacityForTabs;
@@ -667,42 +758,78 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 #pragma mark - Private
 
-#pragma mark Preselection
+#pragma mark - ComposeboxModeObserver
 
-// Attempts to prepopulate the input state after an environment change.
-// This is subject to restriction based on the reference state.
-- (void)applyPreselection:
-            (const contextual_search::InputState&)preselectionState
-        forReferenceState:(const contextual_search::InputState&)inputState {
-  bool canSelectModel = NO;
-  if (!EnableComposeboxServerSideState()) {
-    canSelectModel = YES;
-  } else {
-    bool model_allowed = std::ranges::contains(inputState.allowed_models,
-                                               preselectionState.active_model);
-    bool model_disabled = std::ranges::contains(inputState.disabled_models,
-                                                preselectionState.active_model);
-    canSelectModel = model_allowed && !model_disabled;
+- (void)composeboxModeDidChange:(ComposeboxMode)mode {
+  if (![self canSelectTool:mode]) {
+    _modeHolder.mode = [self defaultTool];
+    // Return early as setting mode triggers a new call.
+    return;
   }
 
-  if (canSelectModel && _inputStateModel) {
-    _inputStateModel->setActiveModel(preselectionState.active_model);
+  // Set active tool mode triggers input state update.
+  omnibox::ToolMode toolMode =
+      ToolModeForComposeboxMode(mode, self.items.hasImage);
+  [self setActiveToolInInputState:toolMode];
+
+  [self updateModelOnModeChange];
+
+  // Invalidate items/attachments for the current mode.
+  NSArray<ComposeboxInputItem*>* invalidatedItems =
+      [self invalidItemsInActiveMode];
+
+  [self.delegate inputStateManager:self
+                     didChangeMode:mode
+            invalidatedAttachments:invalidatedItems];
+  [self.delegate inputStateManagerDidUpdateUIState:self];
+}
+
+/// Updates the active model on mode change.
+- (void)updateModelOnModeChange {
+  if ([_modeHolder isRegularSearch]) {
+    // Reset model to kNone when switching to regular search.
+    [self setActiveModel:ComposeboxModelOption::kNone explicitUserAction:NO];
+    return;
+  } else if (_activeModel == ComposeboxModelOption::kNone) {
+    // In AI tools, set the default model when none is selected.
+    [self setActiveModel:[self defaultModel] explicitUserAction:NO];
+  }
+}
+
+// Returns items (attachments) that are invalid (incompatible with the current
+// mode) and pending deletion.
+- (NSArray<ComposeboxInputItem*>*)invalidItemsInActiveMode {
+  NSMutableArray<ComposeboxInputItem*>* invalidatedItems =
+      [NSMutableArray array];
+
+  switch ([self activeMode]) {
+    case ComposeboxMode::kImageGeneration: {
+      // Image generation only accepts one image, invalidate the other items.
+      ComposeboxInputItem* imageToKeep = nil;
+      for (ComposeboxInputItem* item in self.items.containedItems) {
+        BOOL hasImageType =
+            item.type == ComposeboxInputItemType::kComposeboxInputItemTypeImage;
+        BOOL shouldReuseItem = hasImageType && !imageToKeep;
+        if (shouldReuseItem) {
+          imageToKeep = item;
+          continue;
+        }
+
+        [invalidatedItems addObject:item];
+      }
+      break;
+    }
+    case ComposeboxMode::kRegularSearch:
+      // Invalidate all items.
+      if (self.items.containedItems) {
+        [invalidatedItems addObjectsFromArray:self.items.containedItems];
+      }
+      break;
+    default:
+      break;
   }
 
-  bool canSelectTool = NO;
-  if (!EnableComposeboxServerSideState()) {
-    canSelectTool = YES;
-  } else {
-    bool tool_allowed = std::ranges::contains(inputState.allowed_tools,
-                                              preselectionState.active_tool);
-    bool tool_disabled = std::ranges::contains(inputState.disabled_tools,
-                                               preselectionState.active_tool);
-    canSelectTool = tool_allowed && !tool_disabled;
-  }
-
-  if (canSelectTool) {
-    [self setActiveTool:preselectionState.active_tool];
-  }
+  return invalidatedItems;
 }
 
 #pragma mark Observation
@@ -722,8 +849,85 @@ ComposeboxStrings* ServerStringsFromInputState(
 // Notifies the delegate of state updates.
 - (void)didUpdateInputState:(const contextual_search::InputState&)inputState {
   _inputState = inputState;
-  _cachedStrings = ServerStringsFromInputState(inputState);
-  [self.delegate inputStateManager:self didUpdateInputState:inputState];
+
+  [self reconcileToolModeWithInputState];
+  [self reconcileModelWithInputState];
+
+  [self.delegate inputStateManagerDidUpdateUIState:self];
+}
+
+// Returns YES if the given mode matches the tool mode with leeway.
+- (BOOL)isMode:(ComposeboxMode)mode matchingTool:(omnibox::ToolMode)tool {
+  switch (mode) {
+    case ComposeboxMode::kRegularSearch:
+    case ComposeboxMode::kAIM:
+      // Both RegularSearch and AIM map to TOOL_MODE_UNSPECIFIED.
+      return tool == omnibox::ToolMode::TOOL_MODE_UNSPECIFIED;
+    default:
+      return ToolModeForComposeboxMode(mode, self.items.hasImage) == tool;
+  }
+}
+
+// Returns YES if the given model option matches the model mode.
+- (BOOL)isModelOption:(ComposeboxModelOption)option
+    matchingModelMode:(omnibox::ModelMode)modelMode {
+  if ([self activeMode] == ComposeboxMode::kRegularSearch) {
+    // Any model is valid in regular search.
+    return YES;
+  }
+  if (option == ComposeboxModelOption::kNone) {
+    // kNone is not valid in AI mode.
+    return NO;
+  }
+  return option == ModelOptionForModelMode(modelMode);
+}
+
+// Synchronizes the local active tool mode with the server-side input state,
+// ensuring the local selection is valid according to the current server
+// configuration.
+- (void)reconcileToolModeWithInputState {
+  if (!_inputState.has_value()) {
+    return;
+  }
+  ComposeboxMode currentMode = [self activeMode];
+  // Local and inputStateModel matches.
+  if ([self isMode:currentMode matchingTool:_inputState->active_tool]) {
+    return;
+  }
+
+  omnibox::ToolMode targetToolMode =
+      ToolModeForComposeboxMode(currentMode, self.items.hasImage);
+
+  BOOL localOptionValid = [self canSelectTool:currentMode];
+  if (localOptionValid) {
+    // Local is valid, update inputStateModel.
+    [self setActiveToolInInputState:targetToolMode];
+  } else {
+    // Local is not valid, reset to default.
+    _modeHolder.mode = [self defaultTool];
+  }
+}
+
+// Synchronizes the local active model with the server-side input state,
+// ensuring the local selection is valid according to the current server
+// configuration.
+- (void)reconcileModelWithInputState {
+  if (!_inputState.has_value()) {
+    return;
+  }
+  // Local and inputStateModel matches.
+  if ([self isModelOption:_activeModel
+          matchingModelMode:_inputState->active_model]) {
+    return;
+  }
+
+  if ([self canSelectModel:_activeModel]) {
+    // Local is valid, update inputStateModel.
+    [self setActiveModelInInputState:_activeModel explicitUserAction:NO];
+  } else {
+    // Local is not valid, reset to default.
+    [self setActiveModel:[self defaultModel] explicitUserAction:NO];
+  }
 }
 
 #pragma mark - InputState Helpers
@@ -731,6 +935,29 @@ ComposeboxStrings* ServerStringsFromInputState(
 // Returns the current active mode from the mode holder.
 - (ComposeboxMode)activeMode {
   return _modeHolder.mode;
+}
+
+/// Sets the active model in input state model.
+- (void)setActiveModelInInputState:(ComposeboxModelOption)modelOption
+                explicitUserAction:(BOOL)explicitUserAction {
+  if (!_inputState.has_value()) {
+    return;
+  }
+  // Set the model in input state.
+  omnibox::ModelMode requestedModelMode =
+      ModelModeForModelOption(modelOption, _inputState.value());
+
+  if (_inputState->active_model == requestedModelMode) {
+    return;
+  }
+
+  _inputStateModel->setActiveModel(requestedModelMode);
+
+  contextual_search::ContextualSearchMetricsRecorder* recorder =
+      _sessionHandle ? _sessionHandle->GetMetricsRecorder() : nullptr;
+  if (explicitUserAction && recorder) {
+    recorder->RecordModelMode(requestedModelMode);
+  }
 }
 
 #pragma mark - Eligibility & Availability
@@ -769,10 +996,10 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 // The absolute value for the maximum number of attachments available.
 - (NSUInteger)totalAttachmentLimit {
-  if (EnableComposeboxServerSideState()) {
-    return _inputState.max_total_inputs;
+  if (!EnableComposeboxServerSideState() || !_inputState.has_value()) {
+    return kAttachmentLimit;
   }
-  return kAttachmentLimit;
+  return _inputState->max_total_inputs;
 }
 
 #pragma mark - Helpers
@@ -780,18 +1007,21 @@ ComposeboxStrings* ServerStringsFromInputState(
 /// Whether the given attachment option is allowed by the server.
 - (BOOL)isAttachmentAllowedByServer:
     (ComposeboxAttachmentOption)attachmentOption {
+  if (!_inputState.has_value()) {
+    return NO;
+  }
   using enum ComposeboxAttachmentOption;
   switch (attachmentOption) {
     case kCurrentTab:
     case kTab:
-      return std::ranges::contains(_inputState.allowed_input_types,
+      return std::ranges::contains(_inputState->allowed_input_types,
                                    omnibox::INPUT_TYPE_BROWSER_TAB);
     case kFile:
-      return std::ranges::contains(_inputState.allowed_input_types,
+      return std::ranges::contains(_inputState->allowed_input_types,
                                    omnibox::INPUT_TYPE_LENS_FILE);
     case kGallery:
     case kCamera:
-      return std::ranges::contains(_inputState.allowed_input_types,
+      return std::ranges::contains(_inputState->allowed_input_types,
                                    omnibox::INPUT_TYPE_LENS_IMAGE);
   }
 }
@@ -815,18 +1045,21 @@ ComposeboxStrings* ServerStringsFromInputState(
 /// Whether the given attachment option is disabled by the server.
 - (BOOL)isAttachmentDisabledByServer:
     (ComposeboxAttachmentOption)attachmentOption {
+  if (!_inputState.has_value()) {
+    return NO;
+  }
   using enum ComposeboxAttachmentOption;
   switch (attachmentOption) {
     case kCurrentTab:
     case kTab:
-      return std::ranges::contains(_inputState.disabled_input_types,
+      return std::ranges::contains(_inputState->disabled_input_types,
                                    omnibox::INPUT_TYPE_BROWSER_TAB);
     case kFile:
-      return std::ranges::contains(_inputState.disabled_input_types,
+      return std::ranges::contains(_inputState->disabled_input_types,
                                    omnibox::INPUT_TYPE_LENS_FILE);
     case kGallery:
     case kCamera:
-      return std::ranges::contains(_inputState.disabled_input_types,
+      return std::ranges::contains(_inputState->disabled_input_types,
                                    omnibox::INPUT_TYPE_LENS_IMAGE);
   }
 }
@@ -850,16 +1083,19 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 /// Whether the given tool mode is allowed by the server.
 - (BOOL)isToolAllowedByServer:(ComposeboxMode)mode {
+  if (!_inputState.has_value()) {
+    return NO;
+  }
   using enum ComposeboxMode;
   switch (mode) {
     case kImageGeneration:
-      return std::ranges::contains(_inputState.allowed_tools,
+      return std::ranges::contains(_inputState->allowed_tools,
                                    omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
     case kCanvas:
-      return std::ranges::contains(_inputState.allowed_tools,
+      return std::ranges::contains(_inputState->allowed_tools,
                                    omnibox::ToolMode::TOOL_MODE_CANVAS);
     case kDeepSearch:
-      return std::ranges::contains(_inputState.allowed_tools,
+      return std::ranges::contains(_inputState->allowed_tools,
                                    omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
     case kAIM:
       return [self isEligibleToAIM];
@@ -892,19 +1128,22 @@ ComposeboxStrings* ServerStringsFromInputState(
 
 /// Whether the given tool mode is disabled by the server.
 - (BOOL)isToolDisabledByServer:(ComposeboxMode)mode {
+  if (!_inputState.has_value()) {
+    return NO;
+  }
   using enum ComposeboxMode;
   switch (mode) {
     case kImageGeneration:
-      return std::ranges::contains(_inputState.disabled_tools,
+      return std::ranges::contains(_inputState->disabled_tools,
                                    omnibox::ToolMode::TOOL_MODE_IMAGE_GEN) ||
              std::ranges::contains(
-                 _inputState.disabled_tools,
+                 _inputState->disabled_tools,
                  omnibox::ToolMode::TOOL_MODE_IMAGE_GEN_UPLOAD);
     case kCanvas:
-      return std::ranges::contains(_inputState.disabled_tools,
+      return std::ranges::contains(_inputState->disabled_tools,
                                    omnibox::ToolMode::TOOL_MODE_CANVAS);
     case kDeepSearch:
-      return std::ranges::contains(_inputState.disabled_tools,
+      return std::ranges::contains(_inputState->disabled_tools,
                                    omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
     case kAIM:
     case kRegularSearch:

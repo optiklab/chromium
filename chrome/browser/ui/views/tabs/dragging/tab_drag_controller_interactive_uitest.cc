@@ -2079,11 +2079,10 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
   // We should be doing the post-drag animation.
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return tab_strip2->GetDragContext()
-        ->GetPositioningDelegate()
-        ->IsAnimatingDragEnd();
+               ->GetPositioningDelegate()
+               ->IsAnimatingDragEnd() &&
+           tab_strip2->tab_at(1)->dragging();
   }));
-  // The tab should still be considered as dragging.
-  ASSERT_TRUE(tab_strip2->tab_at(1)->dragging());
 
   Tab* tab = tab_strip->tab_at(0);
   ASSERT_TRUE(PressInputAtCenter(tab));
@@ -2829,10 +2828,9 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
                        DetachToOwnWindowFromMaximizedWindow) {
 #if BUILDFLAG(IS_LINUX)
-  if (ui::OzonePlatform::RunningOnWaylandForTest() &&
-      base::FeatureList::IsEnabled(features::kInitialWebUI)) {
-    GTEST_SKIP() << "Test crashes on Wayland with InitialWebUI enabled. "
-                    "See b/471235790.";
+  if (base::FeatureList::IsEnabled(features::kInitialWebUI)) {
+    GTEST_SKIP() << "Test crashes on Linux with InitialWebUI enabled. "
+                    "See crbug.com/477426026.";
   }
 #endif
   // InitialWebUI defers window visibility. If we Maximize() before the window
@@ -3275,7 +3273,22 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest, DragAll) {
 
   // Move to the first tab and drag it enough so that it would normally
   // detach.
-  DragTabAndNotify(tab_strip, base::BindOnce(&DragAllStep2, this));
+  const int x_offset = 20;
+  const gfx::Point tab_0_center =
+      GetCenterInScreenCoordinates(tab_strip->tab_at(0));
+  DragTabAndNotify(tab_strip, base::BindLambdaForTesting([&]() {
+                     // Trigger a second event since in ChromeOS, `SetBounds` is
+                     // only called after movement are detected within the
+                     // moveloop. The first drag call only starts the moveloop.
+                     // A small touch offset is used so touch movement is
+                     // triggered rather than skip.
+                     const gfx::NativeWindow window_hint =
+                         GetWindowHint(tab_strip);
+                     ASSERT_TRUE(DragInputToNotifyWhenDone(
+                         gfx::Point(tab_0_center.x() + x_offset,
+                                    tab_0_center.y() + GetDetachY(tab_strip)),
+                         base::BindOnce(&DragAllStep2, this), window_hint));
+                   }));
 
   // Should not be dragging.
   ASSERT_FALSE(IsDragSessionActive(tab_strip));
@@ -3298,7 +3311,8 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest, DragAll) {
   if (test::PlatformSupportsScreenCoordinates()) {
     // Size unchanged, but it should have moved down.
     EXPECT_EQ(initial_bounds.size(), final_bounds.size());
-    EXPECT_EQ(initial_bounds.origin().x(), final_bounds.origin().x());
+    EXPECT_EQ(initial_bounds.origin().x() + x_offset,
+              final_bounds.origin().x());
     EXPECT_EQ(initial_bounds.origin().y() + GetDetachY(tab_strip),
               final_bounds.origin().y());
   }
@@ -5483,10 +5497,8 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
   EXPECT_FALSE(browser2->window()->IsMaximized());
 }
 
-// Crashes on ChromeOS. crbug.com/40647142
-IN_PROC_BROWSER_TEST_P(
-    DetachToBrowserInSeparateDisplayTabDragControllerTest,
-    DISABLED_DragBrowserWindowWhenMajorityOfBoundsInSecondDisplay) {
+IN_PROC_BROWSER_TEST_P(DetachToBrowserInSeparateDisplayTabDragControllerTest,
+                       DragBrowserWindowWhenMajorityOfBoundsInSecondDisplay) {
   // Set the browser's window bounds such that the majority of its bounds
   // resides in the second display.
   const std::pair<Display, Display> displays =
@@ -5515,13 +5527,18 @@ IN_PROC_BROWSER_TEST_P(
 
   // Start dragging the window by the tab strip, and move it only to the edge
   // of the first display. Expect at that point mouse would warp and the window
-  // will therefore reside in the second display when mouse is released.
+  // will therefore reside in the second display when mouse is released. Set the
+  // target destination to be 1/8th mark of the second display. This is to
+  // prevent the window from snapping to the left side of the display when
+  // dropped near the edge.
   const gfx::Point tab_0_center =
       GetCenterInScreenCoordinates(tab_strip->tab_at(0));
   const int offset_x = tab_0_center.x() - browser()->window()->GetBounds().x();
   const int detach_y = tab_0_center.y() + GetDetachY(tab_strip);
   const int first_display_warp_edge_x = displays.first.bounds().right() - 1;
-  const gfx::Point warped_point(displays.second.bounds().x() + 1, detach_y);
+  const gfx::Point second_display_target_point(
+      displays.second.bounds().x() + (displays.second.bounds().width() / 8),
+      detach_y);
 
   DragTabAndNotify(
       tab_strip, base::BindLambdaForTesting([&]() {
@@ -5532,7 +5549,7 @@ IN_PROC_BROWSER_TEST_P(
         ASSERT_TRUE(DragInputToNotifyWhenDone(
             gfx::Point(first_display_warp_edge_x, detach_y),
             base::BindOnce(&DragSingleTabToSeparateWindowInSecondDisplayStep2,
-                           this, warped_point, window_hint),
+                           this, second_display_target_point, window_hint),
             window_hint));
       }));
 
@@ -5545,7 +5562,7 @@ IN_PROC_BROWSER_TEST_P(
   ASSERT_FALSE(IsDragSessionActive(tab_strip));
 
   // Browser now resides in display 2.
-  EXPECT_EQ(warped_point.x() - offset_x,
+  EXPECT_EQ(second_display_target_point.x() - offset_x,
             browser()->GetWindow()->GetBounds().x());
   EXPECT_EQ(
       displays.second.id(),
@@ -6099,8 +6116,8 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTestTouch,
   AddTabsAndResetBrowser(browser(), 1);
 
   // Set the last mouse location at the center of tab 0. This shouldn't affect
-  // the touch behavior below. See https://crbug.com/40606256#c1 for the details
-  // of how this can affect the result.
+  // the touch behavior below. See https://crbug.com/40606256#comment2 for the
+  // details of how this can affect the result.
   gfx::Point tab_0_center(GetCenterInScreenCoordinates(tab_strip->tab_at(0)));
   base::RunLoop run_loop;
   ui_controls::SendMouseMoveNotifyWhenDone(tab_0_center.x(), tab_0_center.y(),

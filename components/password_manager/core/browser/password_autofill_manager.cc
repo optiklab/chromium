@@ -115,6 +115,7 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kMixedFormMessage:
     case SuggestionType::kAddressEntryOnTyping:
     case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kIdentityCredential:
     case SuggestionType::kLoyaltyCardEntry:
     case SuggestionType::kOneTimePasswordEntry:
@@ -267,6 +268,10 @@ void PasswordAutofillManager::DidSelectSuggestion(
         suggestion
             .GetPayload<autofill::Suggestion::PasswordSuggestionDetails>();
     CHECK(payload.backup_password);
+    if (password_client_->GetPasswordFeatureManager()
+            ->IsBiometricAuthenticationBeforeFillingEnabled()) {
+      return;
+    }
     password_manager_driver_->PreviewSuggestion(
         payload.username, payload.backup_password.value());
     return;

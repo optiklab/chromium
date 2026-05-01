@@ -412,6 +412,15 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/desktop_to_mobile_promos/promos_types.h:PromoType) -->
 
+<!-- LINT.IfChange(IOSDataProtectionScreenshotBlockSource) -->
+
+<enum name="IOSDataProtectionScreenshotBlockSource">
+  <int value="0" label="Data Controls"/>
+  <int value="1" label="Real-time Lookup"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/enterprise/data_protection/model/data_protection_tab_helper.h:ScreenshotBlockSource) -->
+
 <!-- LINT.IfChange(IOSDefaultBrowserBannerPromoPromoSessionEndedReason) -->
 
 <enum name="IOSDefaultBrowserBannerPromoPromoSessionEndedReason">
@@ -598,6 +607,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Open NTP"/>
   <int value="2" label="Default Browser Settings"/>
   <int value="3" label="Skipped Default Browser Settings For NTP"/>
+  <int value="4" label="App Store Event For Gemini Promo"/>
 </enum>
 
 <enum name="IOSFilePickerDriveAccountSelection">
@@ -653,6 +663,26 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Cancel without triggering search"/>
   <int value="5" label="Cancel after triggering search"/>
 </enum>
+
+<!-- LINT.IfChange(IOSFilePickerDriveSignInResult) -->
+
+<enum name="IOSFilePickerDriveSignInResult">
+  <int value="0" label="Sign in success"/>
+  <int value="1" label="Sign in cancelled"/>
+  <int value="2" label="Sign in failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/drive_file_picker/coordinator/drive_file_picker_metrics_constants.h:IOSFilePickerDriveSignInResult) -->
+
+<!-- LINT.IfChange(IOSFilePickerDriveSignInStatus) -->
+
+<enum name="IOSFilePickerDriveSignInStatus">
+  <int value="0" label="Signed in"/>
+  <int value="1" label="Signed out without account on device"/>
+  <int value="2" label="Signed out with account on device"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/drive_file_picker/coordinator/drive_file_picker_metrics_constants.h:IOSFilePickerDriveSignInStatus) -->
 
 <enum name="IOSFilePickerDriveSorting">
   <int value="0" label="Sorted by name ascending"/>

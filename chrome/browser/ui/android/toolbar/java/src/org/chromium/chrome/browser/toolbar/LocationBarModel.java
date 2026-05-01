@@ -264,8 +264,9 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     /**
      * @return The currently active WebContents being used by the Toolbar.
      */
+    @Override
     @CalledByNative
-    private @Nullable WebContents getActiveWebContents() {
+    public @Nullable WebContents getActiveWebContents() {
         if (!hasTab()) return null;
         return mTab.getWebContents();
     }

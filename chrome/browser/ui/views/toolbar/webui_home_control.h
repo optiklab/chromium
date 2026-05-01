@@ -45,6 +45,8 @@ class WebUIHomeControl {
   // and displays the undo bubble.
   void OnHomeButtonDropUrl(const GURL& url);
 
+  ui::MenuModel* GetMenuModelForTesting() { return &home_menu_; }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
                            CheckHomeButtonColor);
@@ -54,7 +56,9 @@ class WebUIHomeControl {
                            LongPressHomeButton);
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarButtonPressAndDragTest,
                            PressAndDragDown);
-  void UpdateIsPinned(bool is_pinned);
+
+  void OnIsPinnedChanged();
+
   void UpdateState();
 
   // Displays the bubble confirming the home page was set.

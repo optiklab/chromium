@@ -57,10 +57,10 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_finder.h"
-#include "chrome/browser/ui/browser_navigator.h"
-#include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/actor/journal_details_builder.h"
 #include "chrome/common/chrome_features.h"
@@ -70,7 +70,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
-#include "content/public/browser/media_session.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/common/url_constants.h"
@@ -320,6 +319,14 @@ bool GlicKeyedService::MaybeInvoke(
 void GlicKeyedService::InvokeWithAutoSubmit(
     InvokeWithAutoSubmitPasskey auto_submit_passkey,
     GlicInvokeOptions options) {
+  InvokeWithAutoSubmit(auto_submit_passkey, std::move(options),
+                       GlicInvokeWithAutoSubmitOptions());
+}
+
+void GlicKeyedService::InvokeWithAutoSubmit(
+    InvokeWithAutoSubmitPasskey auto_submit_passkey,
+    GlicInvokeOptions options,
+    GlicInvokeWithAutoSubmitOptions auto_submit_options) {
   CHECK(GlicEnabling::IsEnabledForProfile(profile_));
 
   GlicProfileManager* glic_profile_manager = GlicProfileManager::GetInstance();
@@ -328,7 +335,8 @@ void GlicKeyedService::InvokeWithAutoSubmit(
   }
 
   static_cast<GlicInstanceCoordinatorImpl&>(instance_coordinator())
-      .InvokeWithAutoSubmit(auto_submit_passkey, std::move(options));
+      .InvokeWithAutoSubmit(auto_submit_passkey, std::move(options),
+                            std::move(auto_submit_options));
 }
 
 void GlicKeyedService::Invoke(GlicInvokeOptions options) {
@@ -521,8 +529,10 @@ base::CallbackListSubscription GlicKeyedService::AddUserInputSubmittedCallback(
 #if !BUILDFLAG(IS_ANDROID)  // Single instance only
 void GlicKeyedService::CaptureRegion(
     tabs::TabInterface* tab,
-    mojo::PendingRemote<mojom::CaptureRegionObserver> observer) {
-  region_capture_controller_->CaptureRegion(tab, std::move(observer));
+    mojo::PendingRemote<mojom::CaptureRegionObserver> observer,
+    mojom::GetTabContextOptionsPtr options) {
+  region_capture_controller_->CaptureRegion(tab, std::move(observer),
+                                            std::move(options));
 }
 
 void GlicKeyedService::DeleteCapturedRegion(tabs::TabInterface* tab,
@@ -618,22 +628,6 @@ GlicInstance* GlicKeyedService::GetInstanceForActiveTab(
   return instance_coordinator().GetInstanceForTab(tab_list->GetActiveTab());
 }
 
-bool GlicKeyedService::IsMediaRequestFromGlic(
-    const std::string& request_id) const {
-  for (GlicInstance* instance : instance_coordinator().GetInstances()) {
-    if (!instance->host().web_client_contents()) {
-      continue;
-    }
-
-    if (content::MediaSession::GetRequestIdFromWebContents(
-            instance->host().web_client_contents())
-            .ToString() == request_id) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void GlicKeyedService::SendAdditionalContext(
     tabs::TabHandle tab_handle,
     mojom::AdditionalContextPtr context) {
@@ -662,6 +656,10 @@ base::CallbackListSubscription
 GlicKeyedService::AddActOnWebCapabilityChangedCallback(
     ActOnWebCapabilityChangedCallback callback) {
   return actor_policy_checker_->AddActOnWebCapabilityChangedCallback(callback);
+}
+
+GlicActorPolicyChecker& GlicKeyedService::actor_policy_checker() {
+  return *actor_policy_checker_;
 }
 
 }  // namespace glic

@@ -41,6 +41,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -77,7 +78,7 @@ void ProfileCreationComplete(base::OnceClosure completion_callback,
                              Profile* profile) {
   ASSERT_TRUE(profile);
   // No browser should have been created for this profile yet.
-  EXPECT_EQ(chrome::GetBrowserCount(profile), 0U);
+  EXPECT_EQ(ProfileBrowserCollection::GetForProfile(profile)->GetSize(), 0U);
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1U);
   std::move(completion_callback).Run();
 }
@@ -197,10 +198,17 @@ class ProfileRemovalObserver : public ProfileAttributesStorage::Observer {
 class PasswordStoreConsumerVerifier
     : public password_manager::PasswordStoreConsumer {
  public:
-  void OnGetPasswordStoreResults(
-      std::vector<std::unique_ptr<password_manager::PasswordForm>> results)
-      override {
-    password_entries_.swap(results);
+  void OnGetPasswordStoreResultsOrErrorFrom(
+      password_manager::PasswordStoreInterface* store,
+      password_manager::LoginsResultOrError results_or_error) override {
+    if (std::holds_alternative<password_manager::PasswordStoreBackendError>(
+            results_or_error)) {
+      ADD_FAILURE() << "Error from password store";
+      password_entries_ = std::vector<password_manager::PasswordForm>();
+    } else {
+      password_entries_ =
+          std::get<password_manager::LoginsResult>(std::move(results_or_error));
+    }
     run_loop_.Quit();
   }
 
@@ -208,8 +216,7 @@ class PasswordStoreConsumerVerifier
     run_loop_.Run();
   }
 
-  const std::vector<std::unique_ptr<password_manager::PasswordForm>>&
-  GetPasswords() const {
+  const std::vector<password_manager::PasswordForm>& GetPasswords() const {
     return password_entries_;
   }
 
@@ -219,8 +226,7 @@ class PasswordStoreConsumerVerifier
 
  private:
   base::RunLoop run_loop_;
-  std::vector<std::unique_ptr<password_manager::PasswordForm>>
-      password_entries_;
+  std::vector<password_manager::PasswordForm> password_entries_;
   base::WeakPtrFactory<PasswordStoreConsumerVerifier> weak_ptr_factory_{this};
 };
 

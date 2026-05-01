@@ -179,9 +179,17 @@ class GlicInstanceImpl : public GlicInstance,
   const InstanceId& id() const override;
   void SetIdForRestoration(InstanceId id);
   std::optional<std::string> conversation_id() const override;
+  std::string conversation_title() const override;
   base::CallbackListSubscription RegisterStateChange(
       StateChangeCallback callback) override;
+  base::CallbackListSubscription AddConversationInfoChangedCallback(
+      base::RepeatingCallback<void(const mojom::ConversationInfo&)> callback);
   void BindTabForTesting(tabs::TabInterface* tab) override;
+
+  // Called exactly once, right before the instance is destroyed.
+  using DestructionCallback = base::OnceCallback<void(GlicInstance*)>;
+  base::CallbackListSubscription RegisterWillBeDestroyed(
+      DestructionCallback callback) override;
 
   // Host::InstanceDelegate:
   // TODO: Currently, both GlicInstanceImpl and GlicKeyedService implement
@@ -243,6 +251,7 @@ class GlicInstanceImpl : public GlicInstance,
   glic::GlicInstanceMetricsBackwardsCompatibility&
   instance_metrics_backwards_compatibility() override;
   void OnSelectionAreasChanged(int count) override;
+  void OnPolylinePointsChanged(const std::vector<int>& counts) override;
   std::unique_ptr<WebUIContentsContainer> CreateWebUIContentsContainer()
       override;
 
@@ -327,6 +336,7 @@ class GlicInstanceImpl : public GlicInstance,
   };
 
   void NotifyStateChange();
+  void NotifyConversationTitleChanged();
 
   GlicUiEmbedder* GetActiveEmbedder();
   GlicUiEmbedder* GetEmbedderForKey(EmbedderKey key);
@@ -392,7 +402,13 @@ class GlicInstanceImpl : public GlicInstance,
   using StateChangeCallbackList = base::RepeatingCallbackList<void(bool)>;
   StateChangeCallbackList state_change_callback_list_;
 
+  using ConversationInfoChangedCallbackList =
+      base::RepeatingCallbackList<void(const mojom::ConversationInfo&)>;
+  ConversationInfoChangedCallbackList conversation_info_changed_callback_list_;
+
   base::ObserverList<PanelStateObserver> state_observers_;
+
+  base::OnceCallbackList<void(GlicInstance*)> will_be_destroyed_callbacks_;
 
   raw_ptr<Profile> profile_;
   raw_ptr<GlicKeyedService> service_;
@@ -440,6 +456,7 @@ class GlicInstanceImpl : public GlicInstance,
   base::TimeTicks last_deactivation_timestamp_;
 
   base::OneShotTimer remove_blank_instance_timer_;
+  base::OneShotTimer maybe_activate_foreground_embedder_timer_;
 
   // True during the synchronous execution of `CreateTab()`, which is called
   // when the user clicks a link inside the Glic panel.

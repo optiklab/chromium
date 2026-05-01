@@ -8,7 +8,10 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
+#include "base/check.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
@@ -150,11 +153,16 @@ void ContentAnnotatorService::OnLanguageDetermined(
 
 void ContentAnnotatorService::OnPageContentExtracted(
     content::Page& page,
-    scoped_refptr<
-        const page_content_annotations::RefCountedAnnotatedPageContent>
-        page_content) {
+    page_content_annotations::PageContent page_content) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(page_content);
+
+  page_content_annotations::RefCountedAnnotatedPageContentPtr*
+      annotated_page_content_ptr = std::get_if<
+          page_content_annotations::RefCountedAnnotatedPageContentPtr>(
+          &page_content);
+  if (!annotated_page_content_ptr || !(*annotated_page_content_ptr)) {
+    return;
+  }
 
   std::optional<int> tab_id;
   content::WebContents* web_contents =
@@ -168,11 +176,12 @@ void ContentAnnotatorService::OnPageContentExtracted(
 
   CacheIterator it =
       GetOrCreateJoinEntry(page.GetMainDocument().GetLastCommittedURL());
-  if (page_content->data.has_main_frame_data()) {
-    it->second.page_title = page_content->data.main_frame_data().title();
+  if ((*annotated_page_content_ptr)->data.has_main_frame_data()) {
+    it->second.page_title =
+        (*annotated_page_content_ptr)->data.main_frame_data().title();
   }
 
-  it->second.annotated_page_content = std::move(page_content);
+  it->second.annotated_page_content = std::move(*annotated_page_content_ptr);
   it->second.ukm_source_id = page.GetMainDocument().GetPageUkmSourceId();
   it->second.tab_id = tab_id;
   MaybeAnnotate(it);
@@ -321,8 +330,8 @@ void ContentAnnotatorService::HandleModelExecutionResult(
         content_annotation = response->content_annotation();
     if (content_annotation.has_value()) {
       data.content_annotation = std::move(*content_annotation);
-      accessibility_annotator_backend_->SetContentAnnotationsCacheData(
-          visit_id, std::move(data));
+      accessibility_annotator_backend_->AddContentAnnotation(
+          visit_id, std::move(data), base::DoNothing());
     }
   }
 }

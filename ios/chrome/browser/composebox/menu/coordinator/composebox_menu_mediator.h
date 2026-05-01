@@ -10,8 +10,12 @@
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_mutator.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
+#import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_image_result.h"
+#import "ios/web/public/web_state_id.h"
 
 @class ComposeboxMenuMediator;
+@class ComposeboxUIInputState;
+@protocol ComposeboxMenuConsumer;
 
 // Delegate for the menu mediator.
 @protocol ComposeboxMenuMediatorDelegate <NSObject>
@@ -21,6 +25,22 @@
 - (void)composeboxMenuMediatorDidProduceFocusParams:
     (ComposeboxFocusParams*)focusParams;
 
+// Called when the camera selection is requested.
+- (void)composeboxMenuMediatorDidRequestCameraSelection:
+    (ComposeboxMenuMediator*)mediator;
+
+// Called when the gallery selection is requested.
+- (void)composeboxMenuMediatorDidRequestGallerySelection:
+    (ComposeboxMenuMediator*)mediator;
+
+// Called when the file selection is requested.
+- (void)composeboxMenuMediatorDidRequestFileSelection:
+    (ComposeboxMenuMediator*)mediator;
+
+// Called when the tab selection is requested.
+- (void)composeboxMenuMediatorDidRequestTabSelection:
+    (ComposeboxMenuMediator*)mediator;
+
 @end
 
 // Mediator for the composebox menu.
@@ -29,8 +49,29 @@
 // Delegate for this mediator.
 @property(nonatomic, weak) id<ComposeboxMenuMediatorDelegate> delegate;
 
-// Creates a new instance with an entrypoint.
-- (instancetype)initWithEntrypoint:(ComposeboxEntrypoint)entrypoint;
+// Consumer for this mediator.
+@property(nonatomic, weak) id<ComposeboxMenuConsumer> consumer;
+
+// Creates a new instance with an entrypoint and the initial UI state.
+- (instancetype)initWithEntrypoint:(ComposeboxEntrypoint)entrypoint
+                        inputState:(ComposeboxUIInputState*)inputState;
+
+/// Processes the given `imageItems`.
+- (void)processImageItems:(NSArray<ComposeboxPickerImageResult*>*)imageItems;
+
+/// Processes the given `urls`.
+- (void)processFileURLs:(NSArray<NSURL*>*)urls;
+
+/// Processes the given web state IDs.
+- (void)processWebStateIDs:(std::set<web::WebStateID>)selectedWebStateIDs
+         cachedWebStateIDs:(std::set<web::WebStateID>)cachedWebStateIDs;
+
+/// Returns whether more attachments can be added.
+- (BOOL)canAddMoreAttachments;
+
+// Returns the maximum number of images allowed based on the current
+// composebox mode and current number of attachments.
+- (NSUInteger)remainingNumberOfImagesAllowed;
 
 @end
 

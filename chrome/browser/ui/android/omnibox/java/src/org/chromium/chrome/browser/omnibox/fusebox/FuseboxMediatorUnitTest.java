@@ -13,6 +13,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -66,8 +67,8 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentRecyclerViewAdapter.FuseboxAttachmentType;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.AiModeActivationSource;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupButtonData;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupState;
@@ -94,6 +95,7 @@ import org.chromium.components.omnibox.IconResourceIdsProto.IconResourceIds;
 import org.chromium.components.omnibox.InputTypeProto.InputType;
 import org.chromium.components.omnibox.ModelConfigProto.ModelConfig;
 import org.chromium.components.omnibox.OmniboxFeatures;
+import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.omnibox.ToolModeProto.ToolMode;
 import org.chromium.content_public.browser.RenderWidgetHostView;
 import org.chromium.content_public.browser.WebContents;
@@ -146,9 +148,16 @@ public class FuseboxMediatorUnitTest {
     private SettableNonNullObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private final SettableNonNullObservableSupplier<@FuseboxState Integer> mFuseboxStateSupplier =
             ObservableSuppliers.createNonNull(FuseboxState.DISABLED);
+    private final SettableNonNullObservableSupplier<@FuseboxLayoutMode Integer>
+            mFuseboxLayoutModeSupplier =
+                    ObservableSuppliers.createNonNull(FuseboxLayoutMode.SEPARATED);
     private final SettableMonotonicObservableSupplier<InputState> mInputStateSupplier =
             ObservableSuppliers.createMonotonic();
+    private final SettableNonNullObservableSupplier<List<SuggestedTabInfo>> mSuggestedTabsSupplier =
+            ObservableSuppliers.createNonNull(List.of());
+
     private final Bitmap mBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+
     private final AutocompleteInput mInput = new AutocompleteInput();
 
     @Before
@@ -170,7 +179,6 @@ public class FuseboxMediatorUnitTest {
                         R.style.Theme_BrowserUI_DayNight);
         mResources = mContext.getResources();
         mModel = new PropertyModel(FuseboxProperties.ALL_KEYS);
-
         mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
 
         mViewHolder = new FuseboxViewHolder(viewGroup, mPopup);
@@ -180,6 +188,8 @@ public class FuseboxMediatorUnitTest {
         doReturn(mBitmap).when(mTabFaviconFactory).apply(any());
         when(mComposeboxQueryControllerBridge.getInputStateSupplier())
                 .thenReturn(mInputStateSupplier);
+        when(mComposeboxQueryControllerBridge.getSuggestedTabsSupplier())
+                .thenReturn(mSuggestedTabsSupplier);
 
         mInput.setPageClassification(
                 PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS_VALUE);
@@ -207,6 +217,7 @@ public class FuseboxMediatorUnitTest {
                         mViewHolder,
                         mTabModelSelectorSupplier,
                         mFuseboxStateSupplier,
+                        mFuseboxLayoutModeSupplier,
                         mSnackbarManager,
                         mClipboard,
                         mScrimManager,
@@ -235,7 +246,8 @@ public class FuseboxMediatorUnitTest {
                         tab,
                         /* bypassTabCache= */ false,
                         mResources,
-                        FuseboxAttachmentButtonType.TAB_PICKER));
+                        FuseboxAttachmentButtonType.TAB_PICKER,
+                        /* isSuggestedTab= */ false));
         RobolectricUtil.runAllBackgroundAndUi();
     }
 
@@ -248,14 +260,16 @@ public class FuseboxMediatorUnitTest {
             when(mockTab.getId()).thenReturn(0);
             when(mockTab.getWebContents())
                     .thenReturn(null); // This will trigger addTabContextFromCache path
-            when(mComposeboxQueryControllerBridge.addTabContext(mockTab)).thenReturn(token);
-            when(mComposeboxQueryControllerBridge.addTabContextFromCache(0)).thenReturn(token);
+            when(mComposeboxQueryControllerBridge.addTabContext(mockTab, false)).thenReturn(token);
+            when(mComposeboxQueryControllerBridge.addTabContextFromCache(0, false))
+                    .thenReturn(token);
             attachment =
                     FuseboxAttachment.forTab(
                             mockTab,
                             /* bypassTabCache= */ false,
                             mResources,
-                            FuseboxAttachmentButtonType.TAB_PICKER);
+                            FuseboxAttachmentButtonType.TAB_PICKER,
+                            /* isSuggestedTab= */ false);
         } else if (attachmentType == FuseboxAttachmentType.ATTACHMENT_FILE) {
             doReturn(token).when(mComposeboxQueryControllerBridge).addFile(eq(title), any(), any());
             attachment =
@@ -312,8 +326,8 @@ public class FuseboxMediatorUnitTest {
         when(tab.getTitle()).thenReturn("Tab " + id);
         when(mTabModelSelector.getTabById(id)).thenReturn(tab);
 
-        when(mComposeboxQueryControllerBridge.addTabContext(tab)).thenReturn(token);
-        when(mComposeboxQueryControllerBridge.addTabContextFromCache(id)).thenReturn(token);
+        when(mComposeboxQueryControllerBridge.addTabContext(tab, false)).thenReturn(token);
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(id, false)).thenReturn(token);
         return tab;
     }
 
@@ -351,6 +365,16 @@ public class FuseboxMediatorUnitTest {
     }
 
     @Test
+    public void testBeginInput_FuseboxPopup_ShowsPopup() {
+        mInput.setFocusReason(OmniboxFocusReason.FAKE_BOX_PLUS_BUTTON_TAP);
+
+        mMediator.endInput();
+        mMediator.beginInput(createSession());
+
+        assertNotEquals(PopupState.HIDDEN, (int) mModel.get(FuseboxProperties.POPUP_STATE));
+    }
+
+    @Test
     public void beginInput_isNotDisabled() {
         assertNotEquals(
                 FuseboxState.DISABLED, mModel.get(FuseboxProperties.FUSEBOX_STATE).intValue());
@@ -379,7 +403,6 @@ public class FuseboxMediatorUnitTest {
         assertNotNull(runnable);
 
         // Show popup.
-        mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
         runnable.run();
         assertEquals(PopupState.FLOATING, (int) mModel.get(FuseboxProperties.POPUP_STATE));
 
@@ -390,7 +413,6 @@ public class FuseboxMediatorUnitTest {
 
     @Test
     public void onPlusButtonClicked_recordsMetrics() {
-        mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
         var histogramWatcher =
                 HistogramWatcher.newSingleRecordWatcher(
                         "Omnibox.MobileFusebox.AttachmentsPopupToggled", true);
@@ -414,7 +436,6 @@ public class FuseboxMediatorUnitTest {
         assertNotNull(runnable);
 
         // Show popup.
-        mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
         runnable.run();
         verify(mScrimManager).showScrim(any());
 
@@ -431,7 +452,6 @@ public class FuseboxMediatorUnitTest {
         assertNotNull(runnable);
 
         // Show popup.
-        mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
         runnable.run();
         verify(mScrimManager, never()).showScrim(any());
     }
@@ -479,9 +499,9 @@ public class FuseboxMediatorUnitTest {
         assertNull(mModel.get(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_FAVICON));
 
         doReturn(mBitmap).when(mTabFaviconFactory).apply(any());
-        doReturn("token").when(mComposeboxQueryControllerBridge).addTabContext(mTab1);
+        doReturn("token").when(mComposeboxQueryControllerBridge).addTabContext(mTab1, false);
         mModel.get(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_CLICKED).run();
-        verify(mComposeboxQueryControllerBridge).addTabContext(mTab1);
+        verify(mComposeboxQueryControllerBridge).addTabContext(mTab1, false);
         assertEquals(mBitmap, ((BitmapDrawable) mAttachments.get(0).thumbnail).getBitmap());
 
         doReturn(mTab2).when(mTabModelSelector).getCurrentTab();
@@ -577,16 +597,13 @@ public class FuseboxMediatorUnitTest {
     }
 
     @Test
-    public void activateSearchMode_clearsAttachmentsAndAbandonsSession() {
+    public void dedicatedButton_clearsAttachmentsAndAbandonsSession() {
         addAttachment("title", "token1", FuseboxAttachmentType.ATTACHMENT_TAB);
-
-        mMediator.activateAiMode(AiModeActivationSource.DEDICATED_BUTTON);
-        mModel.set(FuseboxProperties.ATTACHMENTS_VISIBLE, true);
         assertEquals(
                 AutocompleteRequestType.AI_MODE,
                 (int) mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE));
 
-        mMediator.activateSearchMode();
+        mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE_CLICKED).run();
         assertEquals(
                 AutocompleteRequestType.SEARCH,
                 (int) mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE));
@@ -594,8 +611,8 @@ public class FuseboxMediatorUnitTest {
     }
 
     @Test
-    public void activateAiMode_startsSession() {
-        mMediator.activateAiMode(AiModeActivationSource.DEDICATED_BUTTON);
+    public void dedicatedButton_startsSession() {
+        mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE_CLICKED).run();
         verify(mComposeboxQueryControllerBridge, never()).notifySessionStarted();
         assertEquals(
                 AutocompleteRequestType.AI_MODE,
@@ -608,7 +625,7 @@ public class FuseboxMediatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Omnibox.MobileFusebox.ToolButtonSelected",
                         ToolMode.TOOL_MODE_UNSPECIFIED_VALUE);
-        mMediator.activateAiMode(AiModeActivationSource.TOOL_MENU);
+        mModel.get(FuseboxProperties.POPUP_TOOL_AI_MODE_CLICKED).run();
         histogramWatcher.assertExpected();
     }
 
@@ -618,7 +635,7 @@ public class FuseboxMediatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Omnibox.MobileFusebox.ToolButtonSelected",
                         ToolMode.TOOL_MODE_IMAGE_GEN_VALUE);
-        mMediator.activateImageGeneration();
+        mModel.get(FuseboxProperties.POPUP_TOOL_CREATE_IMAGE_CLICKED).run();
         verify(mComposeboxQueryControllerBridge, never()).notifySessionStarted();
         assertEquals(
                 AutocompleteRequestType.IMAGE_GENERATION,
@@ -658,9 +675,9 @@ public class FuseboxMediatorUnitTest {
     }
 
     @Test
-    public void maybeActivateAiMode_takesEffectInSearchMode() {
+    public void addAttachment_takesEffectInSearchMode() {
         mInput.setRequestType(AutocompleteRequestType.SEARCH);
-        mMediator.maybeActivateAiMode(AiModeActivationSource.DEDICATED_BUTTON);
+        addAttachment("title1", "token1", FuseboxAttachmentType.ATTACHMENT_IMAGE);
         assertEquals(
                 AutocompleteRequestType.AI_MODE,
                 (int) mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE));
@@ -668,9 +685,9 @@ public class FuseboxMediatorUnitTest {
     }
 
     @Test
-    public void maybeActivateAiMode_doesNotAlterCurrentCustomMode() {
+    public void addAttachment_doesNotAlterCurrentCustomMode() {
         mInput.setRequestType(AutocompleteRequestType.IMAGE_GENERATION);
-        mMediator.maybeActivateAiMode(AiModeActivationSource.DEDICATED_BUTTON);
+        addAttachment("title1", "token1", FuseboxAttachmentType.ATTACHMENT_IMAGE);
         assertEquals(
                 AutocompleteRequestType.IMAGE_GENERATION,
                 (int) mModel.get(FuseboxProperties.AUTOCOMPLETE_REQUEST_TYPE));
@@ -1006,7 +1023,7 @@ public class FuseboxMediatorUnitTest {
 
     @Test
     public void testAddAttachment_disablesCreateImage() {
-        doReturn("token-tab1").when(mComposeboxQueryControllerBridge).addTabContext(mTab1);
+        doReturn("token-tab1").when(mComposeboxQueryControllerBridge).addTabContext(mTab1, false);
         doReturn(mTab1).when(mTabModelSelector).getCurrentTab();
         doReturn("Title1").when(mTab1).getTitle();
         doReturn(new GURL("https://www.google.com")).when(mTab1).getUrl();
@@ -1704,5 +1721,35 @@ public class FuseboxMediatorUnitTest {
         verify(mComposeboxQueryControllerBridge)
                 .setActiveModel(ModelMode.MODEL_MODE_GEMINI_PRO_VALUE);
         assertEquals(AutocompleteRequestType.SEARCH, mInput.getRequestType());
+    }
+
+    @Test
+    public void testReconcileSuggestedTabs() {
+        mMediator.beginInput(createSession());
+        mModel.get(FuseboxProperties.POPUP_TOOL_AI_MODE_CLICKED).run();
+
+        SuggestedTabInfo info =
+                new SuggestedTabInfo(1, "Title", new GURL("https://google.com"), 12345L);
+        Tab tab = mock(Tab.class);
+        when(tab.getId()).thenReturn(1);
+        when(tab.getTitle()).thenReturn("Title");
+        when(mTabModelSelector.getTabById(1)).thenReturn(tab);
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(eq(1L), anyBoolean()))
+                .thenReturn("token");
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Omnibox.MobileFusebox.AttachmentButtonShown",
+                                FuseboxAttachmentButtonType.SUGGESTED_TAB)
+                        .build();
+
+        mSuggestedTabsSupplier.set(List.of(info));
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        assertEquals(1, mAttachments.size());
+        assertEquals(1, mAttachments.get(0).getTabId());
+        assertTrue(mAttachments.get(0).isSuggestedTab);
+        histogramWatcher.assertExpected();
     }
 }

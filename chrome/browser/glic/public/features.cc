@@ -25,8 +25,14 @@ BASE_FEATURE(kGlicOrphanedReattachment, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSelectionPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
 
+const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly{
+    &kGlicSelectionPrompt, "updates_only", false};
 const base::FeatureParam<bool> kGlicSelectionPromptUseWidget{
     &kGlicSelectionPrompt, "use_widget", true};
+const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList{
+    &kGlicSelectionPrompt, "top_cue_only_list", ""};
+const base::FeatureParam<int> kGlicSelectionPromptWidgetMaxTotalDismisses{
+    &kGlicSelectionPrompt, "max_total_dismisses", 10};
 
 BASE_FEATURE(kGlicDaisyChainViaCoordinator, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -121,6 +127,7 @@ BASE_FEATURE(kGlicGetTabFaviconById, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicSkipCookieSyncOnOpen, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicCookieSyncOnTokenChange, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicShareImageViaInvoke, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicWebClientLoadTimes, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicPreLoadingTimeMs{
@@ -131,5 +138,8 @@ const base::FeatureParam<int> kGlicMaxLoadingTimeMs{
     &kGlicWebClientLoadTimes, "glic-max-loading-time-ms", 20000};
 const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs{
     &kGlicWebClientLoadTimes, "glic-reload-max-loading-time-ms", 30000};
+
+BASE_FEATURE(kGlicContextualCueingV2AutoSubmit,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

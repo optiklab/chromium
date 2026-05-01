@@ -2024,6 +2024,8 @@ enum HistogramValue {
   GLICPRIVATE_GETSTATE = 1961,
   ACCESSIBILITY_PRIVATE_INSTALLTENJI = 1962,
   GLICPRIVATE_INVOKE = 1963,
+  INDIGOPRIVATE_READYTORENDER = 1964,
+  MIMEHANDLER_GETSTREAMINFO = 1965,
   // Last entry: Add new entries above, then run:
   // tools/metrics/histograms/update_extension_histograms.py
   ENUM_BOUNDARY

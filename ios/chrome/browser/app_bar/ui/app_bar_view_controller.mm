@@ -4,15 +4,19 @@
 
 #import "ios/chrome/browser/app_bar/ui/app_bar_view_controller.h"
 
+#import <CoreGraphics/CoreGraphics.h>
+
 #import <optional>
 
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_background_view.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
+#import "ios/chrome/browser/app_bar/ui/app_bar_iph_background_view.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_mutator.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_utils.h"
-#import "ios/chrome/browser/app_bar/ui/app_bar_view.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_animator.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
@@ -64,6 +68,9 @@ constexpr CGFloat kStackViewLandscapeVerticalOffset = 2;
 // The inner padding of the buttons.
 constexpr CGFloat kButtonHorizontalPadding = 4;
 constexpr CGFloat kButtonVerticalPadding = 12;
+
+// Duration of the IPH show/hide animation.
+constexpr CGFloat kIPHAnimationDuration = 0.3;
 
 // Returns the color to be used as foreground color for the buttons.
 UIColor* ButtonsForegroundColor() {
@@ -138,7 +145,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   // Cached avatar for the assistant button.
   UIImage* _assistantButtonAvatar;
   // The background view.
-  AppBarView* _backgroundView;
+  AppBarBackgroundView* _backgroundView;
   // The stack view constraints that are updated on rotation.
   NSLayoutConstraint* _stackViewTopConstraint;
   NSLayoutConstraint* _stackViewBottomConstraint;
@@ -146,6 +153,10 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   UIView* _tabGridPreviewContainer;
   // The alpha for the titles of the buttons.
   CGFloat _buttonsTitleAlpha;
+  // Background view for the IPH.
+  AppBarIPHBackgroundView* _IPHBackgroundView;
+  // Whether the App Bar content is rotated.
+  BOOL _isRotated;
 }
 
 #pragma mark - Accessors & Mutators
@@ -168,12 +179,14 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 - (void)updateForAngle:(CGFloat)angle {
   [self loadViewIfNeeded];
 
+  _isRotated = (angle != 0);
+
   CGAffineTransform transform = CGAffineTransformMakeRotation(angle);
   _assistantButton.transform = transform;
   _openNewTabButton.transform = transform;
   _tabGridButton.transform = transform;
 
-  [self updateStackViewConstraintsForPortrait:(angle == 0)];
+  [self updateStackViewConstraintsForPortrait:!_isRotated];
 }
 
 - (void)toggleSpotlightView:(BOOL)shouldShow {
@@ -181,12 +194,38 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   _spotlightView.hidden = !shouldShow;
 }
 
+- (void)showIPHBackground {
+  if (!_IPHBackgroundView) {
+    _IPHBackgroundView = [[AppBarIPHBackgroundView alloc] init];
+    _IPHBackgroundView.translatesAutoresizingMaskIntoConstraints = NO;
+    _IPHBackgroundView.alpha = 0;
+    [_backgroundView insertSubview:_IPHBackgroundView atIndex:0];
+
+    AddSameConstraints(_backgroundView, _IPHBackgroundView);
+  }
+
+  UIView* background = _IPHBackgroundView;
+
+  [UIView animateWithDuration:kIPHAnimationDuration
+                   animations:^{
+                     background.alpha = 1.0;
+                   }];
+}
+
+- (void)hideIPHBackground {
+  UIView* background = _IPHBackgroundView;
+  [UIView animateWithDuration:kIPHAnimationDuration
+                   animations:^{
+                     background.alpha = 0.0;
+                   }];
+}
+
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
 
-  _backgroundView = [[AppBarView alloc] init];
+  _backgroundView = [[AppBarBackgroundView alloc] init];
   _backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view insertSubview:_backgroundView atIndex:0];
 
@@ -275,6 +314,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
   _isTabGridVisible = tabGridVisible;
   _backgroundView.hideColorBackground = tabGridVisible;
   [self updateTabGridButtonForTabGridVisibility];
+  [self updateNewTabButtonForTabGroupsVisibility];
   [self updateNewTabButtonAccessibilityLabel];
 }
 
@@ -304,6 +344,7 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
       return;
     case AppBarButtonTypeNewTab:
       _openNewTabButtonMenu = menu;
+      _openNewTabButton.menu = menu;
       return;
     case AppBarButtonTypeTabGrid:
       _tabGridButtonMenu = menu;
@@ -352,6 +393,14 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
       AppBarPositionForView(self.view) == AppBarPosition::kBottom ? progress
                                                                   : 1.0;
   [self setButtonsTitleAlpha:targetAlpha animationDuration:0];
+}
+
+- (void)animateFullscreenWithAnimator:(FullscreenAnimator*)animator {
+  CGFloat targetAlpha =
+      AppBarPositionForView(self.view) == AppBarPosition::kBottom
+          ? animator.finalProgress
+          : 1.0;
+  [self setButtonsTitleAlpha:targetAlpha animationDuration:animator.duration];
 }
 
 #pragma mark - FullscreenBrowserAgentObserving
@@ -485,10 +534,16 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
     NSFontAttributeName : AssistantButtonFontSize(self.traitCollection)
   }];
 
-  CGFloat availableWidthForButton =
-      (self.view.bounds.size.width - 2 * kStackViewHorizontalMargin -
-       2 * kStackViewSpacing) /
-      3.0;
+  CGFloat availableWidthForButton;
+  if (_isRotated) {
+    availableWidthForButton = self.view.bounds.size.height;
+  } else {
+    availableWidthForButton =
+        (self.view.bounds.size.width - 2 * kStackViewHorizontalMargin -
+         2 * kStackViewSpacing) /
+        3.0;
+  }
+
   CGFloat availableWidthForTitle =
       availableWidthForButton - 2 * kButtonHorizontalPadding;
 
@@ -813,8 +868,8 @@ CGFloat ButtonHighlightAlpha(UIButton* button) {
 // Updates the new tab button for whether the tab groups page in the tab grid or
 // a tab group is visible.
 - (void)updateNewTabButtonForTabGroupsVisibility {
-  if (_isTabGroupsPageVisible || _isTabGroupVisible) {
-    _openNewTabButton.menu = _openNewTabButtonMenu;
+  _openNewTabButton.menu = _openNewTabButtonMenu;
+  if (_isTabGroupsPageVisible || (_isTabGridVisible && _isTabGroupVisible)) {
     _openNewTabButton.showsMenuAsPrimaryAction = YES;
     return;
   }

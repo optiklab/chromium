@@ -3309,6 +3309,71 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Autofill.PayLaterTabSelected" singular="true">
+  <owner>yishuil@google.com</owner>
+  <owner>wilsonlow@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Recorded when a user selects the Pay Later tab from the payments autofill
+    dropdown.
+  </summary>
+  <metric name="Selected" enum="Boolean">
+    <summary>
+      Only ever set to true, thus serving as a counter.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Autofill.PayLaterTabShown" singular="true">
+  <owner>yishuil@google.com</owner>
+  <owner>wilsonlow@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Recorded when the Pay Later tab was shown in the payments autofill dropdown.
+  </summary>
+  <metric name="Shown" enum="Boolean">
+    <summary>
+      Only ever set to true, thus serving as a counter.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
+<event name="Autofill.PayLaterTabSuggestionAccepted" singular="true">
+  <owner>yishuil@google.com</owner>
+  <owner>wilsonlow@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Recorded when a BNPL suggestion from the Pay Later tab was accepted by
+    users.
+  </summary>
+  <metric name="Accepted" enum="Boolean">
+    <summary>
+      Only ever set to true, thus serving as a counter.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="Autofill.SuggestionFilled">
   <owner>osaul@google.com</owner>
   <summary>
@@ -4533,6 +4598,22 @@ be describing additional metrics about the same event.
       Records the number of requests sent to the accounts endpoint per API call.
       Records at the time the API call is completed. This is in units of
       requests.
+    </summary>
+  </metric>
+  <metric name="AccountsSize.Raw">
+    <summary>
+      Records the size of the accounts received from the IdP before applying any
+      filters. Records one sample per accounts fetch if there's at least one
+      account returned. The units is number of accounts (using exponential
+      bucketing).
+    </summary>
+  </metric>
+  <metric name="AccountsSize.ReadyToShow">
+    <summary>
+      Records the size of the accounts received from the IdP after applying the
+      filters. Records one sample per accounts fetch if there's at least one
+      account left after filtering. The units is number of accounts (using
+      exponential bucketing).
     </summary>
   </metric>
   <metric name="AutoReauthn.BlockedByContentSettings" enum="Boolean">

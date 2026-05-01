@@ -15,6 +15,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/time/time.h"
+#import "base/trace_event/trace_event.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/data_sharing/public/data_sharing_utils.h"
 #import "components/feature_engagement/public/event_constants.h"
@@ -103,6 +104,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller+OTRProfileDeletion.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_ui_provider.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_ui_blocker_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/tab_activity_utils.h"
 #import "ios/chrome/browser/shared/coordinator/scene/task_updater_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/url_context.h"
@@ -169,6 +171,7 @@
 #import "net/base/apple/url_conversions.h"
 #import "net/base/url_util.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
+#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -273,6 +276,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 
 @interface SceneController () <AuthenticationServiceObserving,
                                ProfileStateObserver,
+                               SceneUIBlockerStateObserver,
                                SceneUIHandler,
                                SceneUIProvider,
                                SceneURLLoadingServiceDelegate,
@@ -354,6 +358,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
   if (self) {
     _sceneState = sceneState;
     [_sceneState addObserver:self];
+    [_sceneState.uiBlockerState addObserver:self];
 
     _sceneURLLoadingService = std::make_unique<SceneUrlLoadingService>();
     _sceneURLLoadingService->SetDelegate(self);
@@ -685,7 +690,9 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
   }
 }
 
-- (void)sceneStateDidHideModalOverlay:(SceneState*)sceneState {
+#pragma mark - SceneUIBlockerStateObserver
+
+- (void)didHideModalOverlay {
   [self handleExternalIntents];
 }
 
@@ -989,6 +996,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 
 // Starts up a single chrome window and its UI.
 - (void)startUpChromeUI {
+  TRACE_EVENT("ui", "-[SceneController startUpChromeUI]");
   DCHECK(!self.browserLifecycleManager);
   DCHECK(_sceneURLLoadingService.get());
   DCHECK(self.profile);
@@ -1067,6 +1075,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 // Creates and displays the initial UI in `launchMode`, performing other
 // setup and configuration as needed.
 - (void)createInitialUI:(ApplicationMode)launchMode {
+  TRACE_EVENT("ui", "-[SceneController createInitialUI:]");
   // Set the Scene application URL loader on the URL loading browser interface
   // for the regular and incognito interfaces. This will lazily instantiate the
   // incognito interface if it isn't already created.
@@ -1092,6 +1101,27 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
   // around crbug.com/850387, causing a flicker if -makeKeyAndVisible has been
   // called.
   [self.sceneState.window makeKeyAndVisible];
+
+  // On iPad (iOS 26.4+), observe windowScene Light/Dark trait changes so that
+  // the appearance flip is propagated to any visible popover whose detached
+  // presentation window does not participate in normal trait propagation.
+  // TODO(crbug.com/507265316): Remove once UIKit propagates trait changes to
+  // popover presentation windows (tracked with Apple as FB22646087).
+  if (@available(iOS 26.4, *)) {
+    if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+      UIWindowScene* windowScene = self.sceneState.window.windowScene;
+      if (windowScene) {
+        __weak __typeof(self) weakSelf = self;
+        [windowScene
+            registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
+                        withHandler:^(id<UITraitEnvironment> env,
+                                      UITraitCollection* previous) {
+                          [weakSelf
+                              propagateUserInterfaceStyleToPresentedViewControllers];
+                        }];
+      }
+    }
+  }
 
   if (!self.sceneState.profileState.startupInformation.isFirstRun) {
     [self reconcileEulaAsAccepted];
@@ -1156,6 +1186,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
   self.browserLifecycleManager = nil;
 
   [self.sceneState.profileState removeObserver:self];
+  [_sceneState.uiBlockerState removeObserver:self];
   _sceneURLLoadingService.reset();
 
   _imageTranscoder = nullptr;
@@ -1280,7 +1311,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
     return NO;
   }
 
-  if (self.sceneState.presentingModalOverlay) {
+  if (self.sceneState.uiBlockerState.presentingModalOverlay) {
     return NO;
   }
 
@@ -1381,6 +1412,8 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 
 // Add scene agents that are not dependent on profileState.
 - (void)addAgents {
+  TRACE_EVENT("ui", "-[SceneController addAgents]");
+
   SceneState* sceneState = self.sceneState;
   ProfileIOS* profile = self.profile;
   Browser* mainBrowser = self.browserLifecycleManager.mainInterface.browser;
@@ -2101,6 +2134,11 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
       } else {
         NOTREACHED() << "Credential import is available on iOS 26+ only.";
       }
+    case TRIGGER_GEMINI_PROMO:
+      if (IsAppStoreInAppEventsEnabled()) {
+        // TODO(crbug.com/506473258): Implement Gemini FRE on app startup.
+      }
+      return nil;
     default:
       return nil;
   }
@@ -2594,6 +2632,7 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 }
 
 - (void)activateBVCAndMakeCurrentBVCPrimary {
+  TRACE_EVENT("ui", "-[SceneController activateBVCAndMakeCurrentBVCPrimary]");
   // If there are pending removal operations, the activation will be deferred
   // until the callback is received.
   BrowsingDataRemover* browsingDataRemover =
@@ -2729,6 +2768,41 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
 
 - (void)onServiceStatusChanged {
   [self signoutIfNeeded];
+}
+
+#pragma mark - iPad popover appearance propagation
+
+// Walks the presentation chain rooted at the host window and forwards the
+// current windowScene userInterfaceStyle to popover-presented view
+// controllers. iPad popovers (e.g. the overflow menu) are presented in
+// detached UIPresentationController windows that are not part of
+// `windowScene.windows` and do not receive the windowScene's trait
+// propagation, so we have to push the appearance to them explicitly.
+//
+// Only VCs presented as popovers and which do not already have an explicit
+// overrideUserInterfaceStyle are touched, so that intentional per-VC
+// overrides (e.g. a sheet that wants to stay light) are preserved.
+//
+// TODO(crbug.com/507265316): Remove once UIKit propagates trait changes to
+// popover presentation windows (tracked with Apple as FB22646087).
+- (void)propagateUserInterfaceStyleToPresentedViewControllers {
+  UIWindow* window = self.sceneState.window;
+  UIWindowScene* windowScene = window.windowScene;
+  if (!windowScene) {
+    return;
+  }
+  UIUserInterfaceStyle style =
+      windowScene.traitCollection.userInterfaceStyle;
+  UIViewController* presented =
+      window.rootViewController.presentedViewController;
+  while (presented) {
+    if (presented.modalPresentationStyle == UIModalPresentationPopover &&
+        presented.overrideUserInterfaceStyle ==
+            UIUserInterfaceStyleUnspecified) {
+      presented.overrideUserInterfaceStyle = style;
+    }
+    presented = presented.presentedViewController;
+  }
 }
 
 @end

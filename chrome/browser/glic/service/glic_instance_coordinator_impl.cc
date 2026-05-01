@@ -119,14 +119,9 @@ GlicInstanceCoordinatorImpl::GlicInstanceCoordinatorImpl(
 }
 
 GlicInstanceCoordinatorImpl::~GlicInstanceCoordinatorImpl() {
-  // Delete all open invoke handlers, first triggering error handling.
-  auto handlers = std::exchange(invoke_handlers_, {});
-  for (auto& [instance, handler] : handlers) {
-    // Will result in erase from invoke_handlers_, which is safe because we
-    // exchanged.
-    handler->OnError(GlicInvokeError::kInstanceDestroyed);
+  for (auto& [id, instance] : instances_) {
+    instance->CloseInstanceAndShutdown();
   }
-  handlers.clear();
 
   // Delete all instances before destruction. Destroying web contents can result
   // in various calls to dependencies.
@@ -304,13 +299,23 @@ void GlicInstanceCoordinatorImpl::RemoveAllInstances() {
 }
 
 void GlicInstanceCoordinatorImpl::Invoke(GlicInvokeOptions options) {
-  InvokeInternal(std::nullopt, std::move(options));
+  InvokeInternal(std::nullopt, std::move(options),
+                 GlicInvokeWithAutoSubmitOptions());
 }
 
 void GlicInstanceCoordinatorImpl::InvokeWithAutoSubmit(
     InvokeWithAutoSubmitPasskey auto_submit_passkey,
     GlicInvokeOptions options) {
-  InvokeInternal(auto_submit_passkey, std::move(options));
+  InvokeInternal(auto_submit_passkey, std::move(options),
+                 GlicInvokeWithAutoSubmitOptions());
+}
+
+void GlicInstanceCoordinatorImpl::InvokeWithAutoSubmit(
+    InvokeWithAutoSubmitPasskey auto_submit_passkey,
+    GlicInvokeOptions options,
+    GlicInvokeWithAutoSubmitOptions auto_submit_options) {
+  InvokeInternal(auto_submit_passkey, std::move(options),
+                 std::move(auto_submit_options));
 }
 
 void GlicInstanceCoordinatorImpl::GetExperimentalTriggeringUpdates(
@@ -326,7 +331,8 @@ void GlicInstanceCoordinatorImpl::GetExperimentalTriggeringUpdates(
 
 void GlicInstanceCoordinatorImpl::InvokeInternal(
     std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey,
-    GlicInvokeOptions options) {
+    GlicInvokeOptions options,
+    GlicInvokeWithAutoSubmitOptions auto_submit_options) {
   GlicInvokeHandler::ResolvedTarget resolved_target =
       GlicInvokeHandler::ResolveTargetSurface(profile_, options.target);
   tabs::TabInterface* tab = resolved_target.tab;
@@ -375,7 +381,8 @@ void GlicInstanceCoordinatorImpl::InvokeInternal(
   }
 
   invoke_handlers_[instance] = std::make_unique<GlicInvokeHandler>(
-      *instance, resolved_target, std::move(options), auto_submit_passkey,
+      *instance, resolved_target, std::move(options),
+      std::move(auto_submit_options), auto_submit_passkey,
       base::BindOnce(&GlicInstanceCoordinatorImpl::OnInvokeHandlerComplete,
                      base::Unretained(this)));
   invoke_handlers_[instance]->Invoke();
@@ -457,10 +464,6 @@ void GlicInstanceCoordinatorImpl::Reload(
 base::WeakPtr<GlicInstanceCoordinatorImpl>
 GlicInstanceCoordinatorImpl::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
-}
-
-Profile* GlicInstanceCoordinatorImpl::profile() {
-  return profile_;
 }
 
 base::CallbackListSubscription GlicInstanceCoordinatorImpl::
@@ -695,12 +698,6 @@ void GlicInstanceCoordinatorImpl::ToggleSidePanel(
 }
 
 void GlicInstanceCoordinatorImpl::RemoveInstance(GlicInstanceImpl* instance) {
-  if (invoke_handlers_.contains(instance)) {
-    // OnError will trigger the completion callback which will remove the invoke
-    // handler from the map.
-    invoke_handlers_[instance]->OnError(GlicInvokeError::kInstanceDestroyed);
-  }
-
   if (!instances_.contains(instance->id())) {
     // This instance has already been removed, so there's no work to do.
     return;
@@ -711,11 +708,11 @@ void GlicInstanceCoordinatorImpl::RemoveInstance(GlicInstanceImpl* instance) {
   // not return the instance being deleted while it's being deleted.
   InstanceId id = instance->id();
   instance->CloseInstanceAndShutdown();
-  auto instance_value = std::exchange(instances_[id], {});
-  instances_.erase(id);
   if (instance == last_active_instance_) {
     last_active_instance_ = nullptr;
   }
+  auto instance_value = std::exchange(instances_[id], {});
+  instances_.erase(id);
 }
 
 void GlicInstanceCoordinatorImpl::SwitchConversation(

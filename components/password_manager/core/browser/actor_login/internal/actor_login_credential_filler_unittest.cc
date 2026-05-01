@@ -314,6 +314,36 @@ TEST_P(ActorLoginCredentialFillerTest, NoSigninForm_NoManagers) {
   filler.reset();
 }
 
+TEST_P(ActorLoginCredentialFillerTest, PrimaryPageChanged) {
+  url::Origin origin = url::Origin::Create(GURL(kLoginUrl));
+  Credential credential =
+      CreateTestCredential(kTestUsername, origin.GetURL(), origin);
+
+  base::test::TestFuture<LoginStatusResultOrError> future;
+  auto filler = std::make_unique<ActorLoginCredentialFiller>(
+      origin, credential, should_store_permission(), &mock_client_,
+      mqls_logger(), base::TimeTicks::Now(), mock_is_task_in_focus_.Get(),
+      future.GetCallback());
+
+  AttemptLoginDetails expected_details;
+  expected_details.set_outcome(
+      optimization_guide::proto::
+          ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_FILLING_INTERRUPTED_BY_PAGE_CHANGE);
+  expected_details.set_attempt_login_time_ms(0);
+  EXPECT_CALL(
+      mock_mqls_logger_,
+      AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
+
+  filler->OnPrimaryPageChanged();
+
+  ASSERT_TRUE(future.Get().has_value());
+  EXPECT_EQ(future.Get().value(),
+            LoginStatusResult::kErrorPageChangedDuringFilling);
+
+  // Destroy the filler, because it sends logs in the destructor.
+  filler.reset();
+}
+
 TEST_P(ActorLoginCredentialFillerTest, NoSigninForm_CrossSiteIframe) {
   url::Origin origin = url::Origin::Create(GURL("https://example.com/login"));
   url::Origin cross_site_origin =
@@ -516,6 +546,47 @@ TEST_P(ActorLoginCredentialFillerTest, DontFillGroupedMatch) {
   filler.AttemptLogin(&mock_password_manager_);
   ASSERT_TRUE(future.Get().has_value());
   EXPECT_EQ(future.Get().value(), LoginStatusResult::kErrorInvalidCredential);
+}
+
+TEST_P(ActorLoginCredentialFillerTest, FillsAndroidAppCredentialMatch) {
+  const url::Origin origin =
+      url::Origin::Create(GURL("https://example.com/login"));
+  Credential credential = CreateTestCredential(kTestUsername, GURL(), origin);
+  credential.signon_realm = "android://hash@com.example.android";
+
+  const FormData form_data = CreateSigninFormData(origin.GetURL());
+
+  std::vector<password_manager::PasswordForm> saved_forms;
+  PasswordForm form = CreateSavedPasswordForm(GURL(), kTestUsername);
+  form.signon_realm = "android://hash@com.example.android";
+  saved_forms.push_back(std::move(form));
+  form_fetcher_.SetBestMatches(saved_forms);
+
+  std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
+  form_managers.push_back(CreateFormManagerWithParsedForm(origin, form_data));
+  const PasswordForm* parsed_form = form_managers[0]->GetParsedObservedForm();
+
+  base::test::TestFuture<LoginStatusResultOrError> future;
+  ActorLoginCredentialFiller filler(
+      origin, credential, should_store_permission(), &mock_client_,
+      mqls_logger(), base::TimeTicks::Now(), mock_is_task_in_focus_.Get(),
+      future.GetCallback());
+
+  EXPECT_CALL(mock_form_cache_, GetFormManagers)
+      .WillRepeatedly(Return(base::span(form_managers)));
+
+  EXPECT_CALL(mock_driver_,
+              FillField(parsed_form->username_element_renderer_id, _, _, _))
+      .WillOnce(RunOnceCallback<3>(true));
+  EXPECT_CALL(mock_driver_,
+              FillField(parsed_form->password_element_renderer_id, _, _, _))
+      .WillOnce(RunOnceCallback<3>(true));
+
+  filler.AttemptLogin(&mock_password_manager_);
+  const LoginStatusResultOrError& result = future.Get();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result.value(),
+            LoginStatusResult::kSuccessUsernameAndPasswordFilled);
 }
 
 TEST_P(ActorLoginCredentialFillerTest,
@@ -1725,7 +1796,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillingIsDisabled) {
   AttemptLoginDetails expected_details;
   expected_details.set_outcome(
       optimization_guide::proto::
-          ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_UNSPECIFIED);
+          ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_FILLING_NOT_ALLOWED);
   expected_details.set_attempt_login_time_ms(0);
   EXPECT_CALL(
       mock_mqls_logger_,

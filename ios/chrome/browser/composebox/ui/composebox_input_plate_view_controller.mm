@@ -637,10 +637,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
   [self.mutator attachCurrentTabContent];
 }
 
-- (void)plusButtonTouchDown {
-  [self.delegate composeboxViewControllerMayShowGalleryPicker:self];
-}
-
 - (void)plusButtonDidOpenMenu {
   using enum ComposeboxAttachmentOption;
   std::vector<FuseboxAttachmentButtonType> visibleButtons;
@@ -668,7 +664,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 }
 
 - (void)plusButtonTapped {
-  [self.delegate composeboxViewControllerDidTapPlusButton:self];
+  [self.delegate composeboxViewControllerDidTapPlusButton:self
+                                         withUIInputState:_state];
   [self plusButtonDidOpenMenu];
 }
 
@@ -990,12 +987,8 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
 /// Updates the placeholder text based on the current operating mode of the
 /// composebox.
 - (void)updatePlaceholderText {
-  if (_state.activeTool == ComposeboxMode::kRegularSearch) {
-    [_editView setCustomPlaceholderText:nil];
-  } else {
-    [_editView setCustomPlaceholderText:[_state.strings
-                                            hintTextForTool:_state.activeTool]];
-  }
+  [_editView setCustomPlaceholderText:[_state.strings
+                                          hintTextForTool:_state.activeTool]];
 }
 
 /// Adds and constraints the 'X' mark indicator to the given button.
@@ -1095,10 +1088,6 @@ UIImage* SendButtonImage(BOOL highlighted, ComposeboxTheme* theme) {
         constraintGreaterThanOrEqualToConstant:kAIMButtonHeight],
     [plusButton.widthAnchor constraintEqualToConstant:kAIMButtonHeight],
   ]];
-
-  [plusButton addTarget:self
-                 action:@selector(plusButtonTouchDown)
-       forControlEvents:UIControlEventTouchDown];
 
   if (IsComposeboxPlusButtonBottomSheet()) {
     [plusButton addTarget:self

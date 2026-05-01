@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_GLIC_PUBLIC_GLIC_INSTANCE_H_
 #define CHROME_BROWSER_GLIC_PUBLIC_GLIC_INSTANCE_H_
 
+#include <vector>
+
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/observer_list_types.h"
@@ -52,19 +54,10 @@ struct ConversationInfo {
   std::string title;
 };
 
-struct PanelStateContext {
-  // Provided only when kGlicMultiInstance is off.
-  raw_ptr<BrowserWindowInterface> attached_browser = nullptr;
-  // Provided only when kGlicMultiInstance is off.
-  raw_ptr<views::Widget> glic_widget = nullptr;
-};
-
 // Observes the state of the glic panel.
 class PanelStateObserver : public base::CheckedObserver {
  public:
-  virtual void PanelStateChanged(const mojom::PanelState& panel_state,
-                                 const PanelStateContext& context) = 0;
-  virtual void OnInstanceDestroyed() {}
+  virtual void PanelStateChanged(const mojom::PanelState& panel_state) = 0;
 };
 
 // Public interface for one instance of the glic web client.
@@ -90,7 +83,14 @@ class GlicInstance {
   virtual base::CallbackListSubscription RegisterStateChange(
       StateChangeCallback callback) = 0;
 
+  // TODO(b/501233062): Remove from the public interface once the existing
+  // user has migrated away from the API.
+  using DestructionCallback = base::OnceCallback<void(GlicInstance*)>;
+  virtual base::CallbackListSubscription RegisterWillBeDestroyed(
+      DestructionCallback callback) = 0;
+
   // Get this instance's Host which manages the chrome://glic WebContents.
+  // DEPRECATED - Use specific GlicInstance methods instead.
   virtual Host& host() = 0;
 
   // Gets the window size of the active embedder.
@@ -101,6 +101,9 @@ class GlicInstance {
 
   // Get the current conversation ID for this instance.
   virtual std::optional<std::string> conversation_id() const = 0;
+
+  // Get the current conversation title for this instance.
+  virtual std::string conversation_title() const = 0;
 
   // Returns the timestamp when the instance last became active.
   virtual base::Time GetLastActivationTimestamp() const = 0;
@@ -114,6 +117,7 @@ class GlicInstance {
   // given that GlicInstanceMetrics can't be used outside of glic
   // implementation.
   virtual void OnSelectionAreasChanged(int count) = 0;
+  virtual void OnPolylinePointsChanged(const std::vector<int>& counts) = 0;
 
   virtual void BindTabForTesting(tabs::TabInterface* tab) = 0;
 };

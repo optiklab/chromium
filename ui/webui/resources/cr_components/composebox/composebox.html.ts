@@ -14,6 +14,7 @@ export function getHtml(this: ComposeboxElement) {
   ${!this.disableComposeboxAnimation ? html`
     <search-animated-glow
         animation-state="${this.animationState}"
+        .inVoiceSearchMode="${this.inVoiceSearchMode}"
         .entrypointName="${this.entrypointName}"
         .requiresVoice="${this.shouldShowVoiceSearchAnimation()}"
         .transcript="${this.transcript}"
@@ -43,6 +44,7 @@ export function getHtml(this: ComposeboxElement) {
             .showDropdown="${this.showDropdown}"
             .inputPlaceholder="${this.inputPlaceholder}"
             .input="${this.input}"
+            .smartComposeEnabled="${this.smartComposeEnabled}"
             .smartComposeInlineHint="${this.smartComposeInlineHint}"
             .isCollapsible="${this.isCollapsible}"
             .submitEnabled="${this.submitEnabled}"
@@ -169,6 +171,8 @@ export function getHtml(this: ComposeboxElement) {
         @voice-search-error="${this.onVoiceSearchError}"
         @transcript-update="${this.onTranscriptUpdate}"
         @speech-received="${this.onSpeechReceived}"
+        @recording-stopped="${this.onRecordingStopped_}"
+        .submitButtonIconType="${this.submitButtonIconType}"
         exportparts="voice-close-button">
     </cr-composebox-voice-search>
   ` : ''}

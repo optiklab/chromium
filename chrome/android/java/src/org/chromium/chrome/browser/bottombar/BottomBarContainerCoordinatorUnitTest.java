@@ -6,8 +6,8 @@ package org.chromium.chrome.browser.bottombar;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -30,6 +30,7 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerScrollBehavior;
@@ -40,6 +41,8 @@ import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
 import org.chromium.chrome.browser.ui.bottombar.BottomBar;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarUtils;
+import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -66,25 +69,28 @@ public class BottomBarContainerCoordinatorUnitTest {
 
     private Activity mActivity;
     private FrameLayout mBottomBarContainer;
+    private SettableNonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private BottomBarContainerCoordinator mCoordinator;
 
     @Before
     public void setUp() {
         mTabSupplier.set(null);
-        when(mActionRegistry.get(ActionId.NEW_TAB)).thenReturn(mActionSupplier);
+        when(mActionRegistry.get(anyInt())).thenReturn(mActionSupplier);
         mActivityScenarioRule
                 .getScenario()
                 .onActivity(
                         (activity) -> {
                             mActivity = activity;
                             mBottomBarContainer = new FrameLayout(mActivity);
+                            mHomepageEnabledSupplier = ObservableSuppliers.createNonNull(true);
                             mCoordinator =
                                     new BottomBarContainerCoordinator(
                                             mBottomBarContainer,
                                             mRequestLayerUpdateCallback,
                                             mActionRegistry,
                                             mTabSupplier,
-                                            mThemeColorProvider);
+                                            mThemeColorProvider,
+                                            mHomepageEnabledSupplier);
                         });
     }
 
@@ -93,7 +99,7 @@ public class BottomBarContainerCoordinatorUnitTest {
         mCoordinator.initializeWithNative(mVisibilityController, mOnModelTokenChange);
         verify(mVisibilityController).setBottomControlsVisible(true);
         verify(mOnModelTokenChange).onResult(any());
-        verify(mActionRegistry).get(ActionId.NEW_TAB);
+        verify(mActionRegistry, times(2)).get(ActionId.NEW_TAB);
     }
 
     @Test
@@ -103,7 +109,13 @@ public class BottomBarContainerCoordinatorUnitTest {
 
     @Test
     public void testGetBackgroundColor() {
-        assertNull(mCoordinator.getBackgroundColor());
+        when(mThemeColorProvider.getBrandedColorScheme())
+                .thenReturn(BrandedColorScheme.APP_DEFAULT);
+        assertEquals(
+                (Integer)
+                        BottomBarUtils.getBottomBarBackgroundColor(
+                                mActivity, BrandedColorScheme.APP_DEFAULT),
+                mCoordinator.getBackgroundColor());
     }
 
     @Test

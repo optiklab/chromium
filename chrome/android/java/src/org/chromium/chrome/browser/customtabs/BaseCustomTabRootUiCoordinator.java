@@ -34,6 +34,7 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.blink.mojom.DisplayMode;
+import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -96,7 +97,7 @@ import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarBehavior;
-import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
+import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator.VisibilityDelegate;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuBlocker;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuCoordinator;
@@ -122,7 +123,7 @@ import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeManager;
-import org.chromium.ui.edge_to_edge.EdgeToEdgeSupplier;
+import org.chromium.ui.edge_to_edge.EdgeToEdgeSupplier.ChangeObserver;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.util.function.BooleanSupplier;
@@ -147,10 +148,10 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     private @Nullable ReadAloudIphController mReadAloudIphController;
     private @Nullable GoogleBottomBarCoordinator mGoogleBottomBarCoordinator;
 
-    private EdgeToEdgeSupplier.@Nullable ChangeObserver mEdgeToEdgeChangeObserver;
+    private @Nullable ChangeObserver mEdgeToEdgeChangeObserver;
     private final Runnable mOpenInBrowserRunnable;
     private @Nullable WebAppHeaderLayoutCoordinator mWebAppHeaderLayoutCoordinator;
-    private final Supplier<BrowserServicesThemeColorProvider> mWebAppThemeColorProvider;
+    private final @Nullable Supplier<BrowserServicesThemeColorProvider> mWebAppThemeColorProvider;
     private final @Nullable String mClientPackageName;
     private boolean mHeaderAsOverlay;
     private @Nullable DesktopPopupHeaderLayoutCoordinator mDesktopPopupHeaderLayoutCoordinator;
@@ -367,27 +368,32 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                     MismatchNotificationController.SuppressedReason.CCT_IS_OFF_THE_RECORD);
             return null;
         }
+        var identityManager = IdentityServicesProvider.get().getIdentityManager(profile);
+        assert identityManager != null;
+        var snackbarManager = mSnackbarManagerSupplier.get();
+        assert snackbarManager != null;
         return new MismatchNotificationChecker(
                 mActivity,
                 mWindowAndroid,
                 mActivityResultTracker,
                 DeviceLockActivityLauncherImpl.get(),
                 profile,
-                IdentityServicesProvider.get().getIdentityManager(profile),
+                identityManager,
                 SigninAndHistorySyncActivityLauncherImpl.get(),
                 getBottomSheetControllerSupplier(),
                 mModalDialogManagerSupplier.get(),
-                mSnackbarManagerSupplier.get(),
+                snackbarManager,
                 (signinDelegate, accountId, lastShownTime, mimData, onClose) -> {
+                    assert mimData != null;
                     boolean show =
                             connection.shouldShowAccountMismatchNotification(
                                     intent, profile, accountId, lastShownTime, mimData);
                     if (show) {
+
+                        var accountName = connection.getAppAccountName(intent);
+                        assert accountName != null;
                         MismatchNotificationController.get(
-                                        mWindowAndroid,
-                                        profile,
-                                        connection.getAppAccountName(intent),
-                                        signinDelegate)
+                                        mWindowAndroid, profile, accountName, signinDelegate)
                                 .showSignedOutMessage(mActivity, onClose);
                     }
                     return show;
@@ -408,6 +414,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
+    @EnsuresNonNull("mToolbarManager")
     protected void initializeToolbar() {
         CustomTabsConnection connection = CustomTabsConnection.getInstance();
         boolean shouldEnableOmnibox =
@@ -444,6 +451,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                             mActivityLifecycleDispatcher,
                             mActivityTabProvider);
 
+            assert mFindToolbarManager != null;
             super.initializeToolbar();
 
             mToolbarManager.setOptionalButtonDelegate(mToolbarButtonsCoordinator);
@@ -459,12 +467,14 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
                     mToolbarButtonsCoordinator);
 
             if (shouldEnableOmnibox) {
+                assert omniboxParams != null;
                 toolbar.setOmniboxParams(omniboxParams);
             }
 
             return;
         }
 
+        assert mFindToolbarManager != null;
         super.initializeToolbar();
 
         // TODO(crbug.com/402213312): Move as much of this as possible into
@@ -519,7 +529,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
 
     @Override
     protected AdaptiveToolbarBehavior createAdaptiveToolbarBehavior(
-            Supplier<Tracker> trackerSupplier) {
+            Supplier<@Nullable Tracker> trackerSupplier) {
         return new CustomTabAdaptiveToolbarBehavior(
                 mActivity,
                 mActivityTabProvider,
@@ -784,13 +794,16 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
             OneshotSupplierImpl<AppMenuCoordinator> appMenuSupplier = new OneshotSupplierImpl<>();
             appMenuSupplier.set(mAppMenuCoordinator);
 
+            assert mWebAppThemeColorProvider != null;
+            var webAppThemeColorProvider = mWebAppThemeColorProvider.get();
+            assert webAppThemeColorProvider != null;
             mWebAppHeaderLayoutCoordinator =
                     new WebAppHeaderLayoutCoordinator(
                             mActivity,
                             mActivity.findViewById(R.id.web_app_header_layout),
                             desktopWindowStateManager,
                             mActivityTabProvider.asObservable(),
-                            mWebAppThemeColorProvider.get(),
+                            webAppThemeColorProvider,
                             intentDataProvider,
                             getScrimManager(),
                             (tab) -> {
@@ -1045,7 +1058,7 @@ public class BaseCustomTabRootUiCoordinator extends RootUiCoordinator {
     }
 
     @Override
-    protected MenuButtonCoordinator.@Nullable VisibilityDelegate getMenuButtonVisibilityDelegate() {
+    protected @Nullable VisibilityDelegate getMenuButtonVisibilityDelegate() {
         return mToolbarButtonsCoordinator;
     }
 }

@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -35,6 +36,10 @@ class MockGlicInstance : public GlicInstance {
               RegisterStateChange,
               (StateChangeCallback),
               (override));
+  MOCK_METHOD(base::CallbackListSubscription,
+              RegisterWillBeDestroyed,
+              (DestructionCallback),
+              (override));
   MOCK_METHOD(bool, IsShowing, (), (const, override));
   MOCK_METHOD(gfx::Size, GetPanelSize, (), (override));
   MOCK_METHOD(const InstanceId&, id, (), (const, override));
@@ -42,11 +47,23 @@ class MockGlicInstance : public GlicInstance {
               conversation_id,
               (),
               (const, override));
+  MOCK_METHOD(std::string, conversation_title, (), (const, override));
   MOCK_METHOD(base::Time, GetLastActivationTimestamp, (), (const, override));
   MOCK_METHOD(base::TimeDelta, GetTimeSinceLastActive, (), (const, override));
   MOCK_METHOD(void, OnSelectionAreasChanged, (int), (override));
+  MOCK_METHOD(void,
+              OnPolylinePointsChanged,
+              (const std::vector<int>&),
+              (override));
   MOCK_METHOD(void, BindTabForTesting, (tabs::TabInterface*), (override));
   MOCK_METHOD(Host&, host, (), (override));
+
+  base::WeakPtr<MockGlicInstance> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
+ private:
+  base::WeakPtrFactory<MockGlicInstance> weak_ptr_factory_{this};
 };
 
 }  // namespace glic

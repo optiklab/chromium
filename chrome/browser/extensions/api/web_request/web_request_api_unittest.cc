@@ -45,10 +45,12 @@
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
 #include "extensions/browser/api/web_request/web_request_info.h"
+#include "extensions/browser/extension_navigation_registry.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/declarative_net_request.h"
 #include "extensions/common/api/web_request.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/extension_builder.h"
 #include "extensions/common/features/feature.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/http/http_util.h"
@@ -182,6 +184,61 @@ TEST_F(ExtensionWebRequestTest, AddAndRemoveListeners) {
             event_router->GetListenerCountForTesting(&profile_, kEventName));
 }
 
+// Tests that removing an active listener only removes listeners with the same
+// render process ID, even if extension ID and sub-event name match.
+TEST_F(ExtensionWebRequestTest, RemoveActiveListenerMatchesRenderProcessId) {
+  std::string kExtensionId("abcdefghijklmnopabcdefghijklmnop");
+  const std::string kEventName(web_request::OnBeforeRequest::kEventName);
+  const std::string kSubEventName = kEventName + "/s1";
+  WebRequestEventRouter* const event_router =
+      WebRequestEventRouter::Get(&profile_);
+
+  // Register two identical listeners that differ ONLY by their
+  // render_process_id (process 1 and process 2).
+  event_router->AddEventListener(
+      &profile_, kExtensionId, kExtensionId, kEventName, kSubEventName,
+      WebRequestEventRouter::RequestFilter(), 0, /*render_process_id=*/1, 0,
+      extensions::kMainThreadId, blink::mojom::kInvalidServiceWorkerVersionId,
+      /*is_lazy=*/false);
+  event_router->AddEventListener(
+      &profile_, kExtensionId, kExtensionId, kEventName, kSubEventName,
+      WebRequestEventRouter::RequestFilter(), 0, /*render_process_id=*/2, 0,
+      extensions::kMainThreadId, blink::mojom::kInvalidServiceWorkerVersionId,
+      /*is_lazy=*/false);
+  // Verify that both listeners were successfully added.
+  EXPECT_EQ(2u,
+            event_router->GetListenerCountForTesting(&profile_, kEventName));
+
+  // Remove the listener specifically tied to render_process_id = 1.
+  event_router->UpdateActiveListenerForTesting(
+      &profile_, WebRequestEventRouter::ListenerUpdateType::kRemove,
+      kExtensionId, kSubEventName, content::ChildProcessId(1),
+      extensions::kMainThreadId, blink::mojom::kInvalidServiceWorkerVersionId);
+  // Verify that the listener count dropped by exactly one. The listener
+  // for process 2 should remain untouched because the IDs did not match.
+  EXPECT_EQ(1u,
+            event_router->GetListenerCountForTesting(&profile_, kEventName));
+
+  // Attempt to remove the listener for render_process_id = 1 again.
+  event_router->UpdateActiveListenerForTesting(
+      &profile_, WebRequestEventRouter::ListenerUpdateType::kRemove,
+      kExtensionId, kSubEventName, content::ChildProcessId(1),
+      extensions::kMainThreadId, blink::mojom::kInvalidServiceWorkerVersionId);
+  // Verify this was a no-op. The count should still be 1 because process 1's
+  // listener is already gone, and it correctly ignores process 2's listener.
+  EXPECT_EQ(1u,
+            event_router->GetListenerCountForTesting(&profile_, kEventName));
+
+  // Remove the remaining listener tied to render_process_id = 2.
+  event_router->UpdateActiveListenerForTesting(
+      &profile_, WebRequestEventRouter::ListenerUpdateType::kRemove,
+      kExtensionId, kSubEventName, content::ChildProcessId(2),
+      extensions::kMainThreadId, blink::mojom::kInvalidServiceWorkerVersionId);
+  // Verify that all listeners have now been cleared.
+  EXPECT_EQ(0u,
+            event_router->GetListenerCountForTesting(&profile_, kEventName));
+}
+
 // Tests that when a browser_context shuts down, all data keyed to that
 // context is removed.
 TEST_F(ExtensionWebRequestTest, BrowserContextShutdown) {
@@ -258,6 +315,81 @@ TEST_F(ExtensionWebRequestTest, BrowserContextShutdown) {
   EXPECT_EQ(0u,
             event_router->GetListenerCountForTesting(&profile_, kEventName));
   EXPECT_FALSE(event_router->HasAnyExtraHeadersListenerForTesting(&profile_));
+}
+
+// Simulates the state caused by polluted prefs (multiple filters under one
+// `sub_event_name` key): when `LoadFilteredLazyListeners` spawns N lazy
+// listeners that share an (extension_id, sub_event_name), the lazy path of
+// `WebRequestEventRouter::AddEventListener` must collapse them into a single
+// inactive listener so that subsequent activations don't violate the
+// `DCHECK_LE(erased, 1u)` assertion in the active path.
+// Regression test for crbug.com/502402731.
+TEST_F(ExtensionWebRequestTest, PollutedPrefsActivationConverges) {
+  const std::string kExtensionId("abcdefghijklmnopabcdefghijklmnop");
+  const std::string kEventName(web_request::OnBeforeRequest::kEventName);
+  const std::string kSubEventName = kEventName + "/s1";
+  WebRequestEventRouter* const event_router =
+      WebRequestEventRouter::Get(&profile_);
+  ASSERT_TRUE(event_router);
+
+  // Simulate `LoadFilteredLazyListeners` loading two lazy listeners under
+  // the same `sub_event_name` from prefs that accumulated duplicate filters.
+  EXPECT_TRUE(event_router->AddEventListener(
+      &profile_, kExtensionId, kExtensionId, kEventName, kSubEventName,
+      WebRequestEventRouter::RequestFilter(), 0, /*render_process_id=*/0,
+      /*web_view_instance_id=*/0, extensions::kMainThreadId,
+      blink::mojom::kInvalidServiceWorkerVersionId, /*is_lazy=*/true));
+  EXPECT_TRUE(event_router->AddEventListener(
+      &profile_, kExtensionId, kExtensionId, kEventName, kSubEventName,
+      WebRequestEventRouter::RequestFilter(), 0, /*render_process_id=*/0,
+      /*web_view_instance_id=*/0, extensions::kMainThreadId,
+      blink::mojom::kInvalidServiceWorkerVersionId, /*is_lazy=*/true));
+
+  // The defensive cleanup in the lazy path should collapse the duplicates into
+  // a single inactive listener.
+  EXPECT_EQ(1u, event_router->GetInactiveListenerCountForTesting(&profile_,
+                                                                 kEventName));
+
+  // Activate the listener (as it happens when the service worker spins up).
+  // `DCHECK_LE(erased, 1u)` holds and activation should succeed.
+  EXPECT_TRUE(event_router->AddEventListener(
+      &profile_, kExtensionId, kExtensionId, kEventName, kSubEventName,
+      WebRequestEventRouter::RequestFilter(), 0, /*render_process_id=*/1,
+      /*web_view_instance_id=*/0, /*worker_thread_id=*/100,
+      /*service_worker_version_id=*/10, /*is_lazy=*/false));
+  EXPECT_EQ(1u,
+            event_router->GetListenerCountForTesting(&profile_, kEventName));
+  // The inactive entry should have been consumed by activation.
+  EXPECT_EQ(0u, event_router->GetInactiveListenerCountForTesting(&profile_,
+                                                                 kEventName));
+}
+
+// Regression test for ExtensionNavigationRegistry::CanRedirect logic bug.
+// This ensures that an extension cannot redirect to another extension's
+// non-web-accessible resources by claiming a redirect recorded by that
+// extension. See crbug.com/497599683.
+TEST_F(ExtensionWebRequestTest, CanRedirectLogicBug) {
+  ExtensionNavigationRegistry* registry =
+      ExtensionNavigationRegistry::Get(&profile_);
+  int64_t nav_id = 42;
+  GURL target_url("chrome-extension://victim/resource.html");
+  ExtensionId attacker_id = "attacker";
+  ExtensionId victim_id = "victim";
+
+  auto attacker_extension =
+      ExtensionBuilder("Attacker").SetID(attacker_id).Build();
+  auto victim_extension = ExtensionBuilder("Victim").SetID(victim_id).Build();
+
+  // Record a redirect initiated by the attacker.
+  registry->RecordExtensionRedirect(nav_id, target_url, attacker_id);
+
+  // The victim extension should NOT be allowed to claim a redirect recorded by
+  // attacker.
+  EXPECT_FALSE(registry->CanRedirect(nav_id, target_url, *victim_extension));
+
+  // Re-record for the attacker check.
+  registry->RecordExtensionRedirect(nav_id, target_url, attacker_id);
+  EXPECT_TRUE(registry->CanRedirect(nav_id, target_url, *attacker_extension));
 }
 
 namespace {

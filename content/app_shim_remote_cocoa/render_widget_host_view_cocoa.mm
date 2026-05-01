@@ -1238,7 +1238,7 @@ static NSWindow* __weak _deferredResignKeyWindow;
   // to perform browser commands such as switching tabs. We only want to handle
   // key equivalents if we're first responder in the keyWindow.
   if (![[self window] isKeyWindow] || [[self window] firstResponder] != self) {
-    TRACE_EVENT_INSTANT0("browser", "NotKeyWindow", TRACE_EVENT_SCOPE_THREAD);
+    TRACE_EVENT_INSTANT("browser", "NotKeyWindow");
     return NO;
   }
 
@@ -2262,10 +2262,6 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   thePoint.y = NSHeight([self frame]) - thePoint.y;
   gfx::PointF rootPoint(thePoint.x, thePoint.y);
 
-  // SyncGetCharacterIndexAtPoint can enter a nested RunLoop that might delete
-  // `self`.
-  NS_VALID_UNTIL_END_OF_SCOPE RenderWidgetHostViewCocoa* keepSelfAlive = self;
-
   uint32_t index = UINT32_MAX;
   _host->SyncGetCharacterIndexAtPoint(rootPoint, &index);
   // |index| could be blink::kNotFound (-1) and its value is different from
@@ -2287,10 +2283,6 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   bool success = false;
   if (actualRange)
     gfxActualRange = gfx::Range::FromPossiblyInvalidNSRange(*actualRange);
-
-  // SyncGetFirstRectForRange can enter a nested RunLoop that might delete
-  // `self`.
-  NS_VALID_UNTIL_END_OF_SCOPE RenderWidgetHostViewCocoa* keepSelfAlive = self;
 
   _host->SyncGetFirstRectForRange(
       gfx::Range::FromPossiblyInvalidNSRange(theRange), &gfxRect,

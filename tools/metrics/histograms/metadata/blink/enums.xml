@@ -5990,7 +5990,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5375" label="AriaLabeledByAlternativeSpelling"/>
   <int value="5376" label="OBSOLETE_CanvasTextNg"/>
   <int value="5377" label="DOMWindowOpenPopup"/>
-  <int value="5378" label="FencedFrameDisableUntrustedNetwork"/>
+  <int value="5378" label="OBSOLETE_FencedFrameDisableUntrustedNetwork"/>
   <int value="5379" label="FencedFrameNotifyEvent"/>
   <int value="5380" label="OBSOLETE_SharedStorageGetInFencedFrame"/>
   <int value="5381" label="OBSOLETE_Translator_MeasureInputUsage_Method"/>
@@ -6522,6 +6522,10 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5878" label="ElementInternalsWithBehaviors"/>
   <int value="5879" label="HTMLSubmitButtonBehaviorUsage"/>
   <int value="5880" label="ElementInternalsBehaviorsAccess"/>
+  <int value="5881" label="CSSURLRequestModifierCrossOrigin"/>
+  <int value="5882" label="CSSURLRequestModifierIntegrity"/>
+  <int value="5883" label="CSSURLRequestModifierReferrerPolicy"/>
+  <int value="5884" label="PreventSvgFilterPaint"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -7308,29 +7312,6 @@ Called by update_permissions_policy_enum.py.-->
       label="Supports-Loading-Mode response header 'fenced-frame' not
              opted-in"/>
 </enum>
-
-<!-- LINT.IfChange(FencedFrameDisableUntrustedNetworkOutcome) -->
-
-<enum name="FencedFrameDisableUntrustedNetworkOutcome">
-  <int value="0" label="Network disabled and promise resolved"/>
-  <int value="1" label="Document not fully active"/>
-  <int value="2" label="Not allowed to disable network"/>
-</enum>
-
-<!-- LINT.ThenChange(//third_party/blink/public/common/fenced_frame/fenced_frame_utils.h:DisableUntrustedNetworkOutcome) -->
-
-<!-- LINT.IfChange(FencedFrameNotifyEventOutcome) -->
-
-<enum name="FencedFrameNotifyEventOutcome">
-  <int value="0" label="Success"/>
-  <int value="1" label="Document not active"/>
-  <int value="2" label="Not called from a fenced frame root"/>
-  <int value="3" label="Invalid event passed in"/>
-  <int value="4" label="Unsupported event type passed in"/>
-  <int value="5" label="No transient user activation"/>
-</enum>
-
-<!-- LINT.ThenChange(//third_party/blink/public/common/fenced_frame/fenced_frame_utils.h:NotifyEventOutcome) -->
 
 <!-- LINT.IfChange(FirstCookieRequest) -->
 

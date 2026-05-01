@@ -370,8 +370,6 @@ external/wpt/css/css-text/letter-spacing/letter-spacing-ligatures-002.html
 external/wpt/css/css-text/line-breaking/line-breaking-atomic-022.html
 external/wpt/css/css-text/tab-size/tab-size.html
 external/wpt/css/css-text/text-autospace/text-autospace-first-line-001.html
-external/wpt/css/css-text/text-transform/text-transform-capitalize-*
-external/wpt/css/css-text/text-transform/text-transform-upperlower-001.html
 external/wpt/css/css-text/white-space/control-chars-*
 external/wpt/css/css-text/white-space/eol-spaces-bidi-003.html
 external/wpt/css/css-text/white-space/pre-float-001.html
@@ -716,7 +714,6 @@ external/wpt/svg/text/reftests/textpath-letter-spacing-01.svg
 external/wpt/svg/text/scripted/getcharnumatposition.html
 external/wpt/svg/text/scripted/getcharnumatposition-slr.tentative.html
 external/wpt/svg/text/scripted/getstartpositionofchar.html
-external/wpt/top-level-storage-access-api/requestStorageAccessFor.sub.https.window.html
 external/wpt/trusted-types/trusted-types-navigation.html
 external/wpt/uievents/interface/keyboard-accesskey-click-event.html
 external/wpt/upgrade-insecure-requests/gen/iframe-blank-inherit.meta/upgrade/websocket.https.html
@@ -976,3 +973,10 @@ virtual/webnn-service-on-cpu/*
 virtual/webnn-service-on-npu/*
 virtual/webnn-service-with-gpu/*
 virtual/lna-webrtc/wpt_internal/*
+
+# See crbug.com/476646486:
+# > Requires content plugin:
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-web-plugin.tentative.https.html
+# > Requires site isolation:
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-remote-frame-in-local-frame.tentative.https.html
+virtual/prevent-svg-filter-paint/external/wpt/svg/styling/svg-filter-render-remote-frame.tentative.sub.https.html

@@ -674,10 +674,12 @@ void UkmPageLoadMetricsObserver::RecordSiteEngagement() const {
   builder.Record(ukm::UkmRecorder::Get());
 }
 
-void UkmPageLoadMetricsObserver::RecordSoftNavigationMetrics(
-    ukm::SourceId ukm_source_id,
-    const page_load_metrics::mojom::SoftNavigationMetrics&
-        soft_navigation_metrics) {
+void UkmPageLoadMetricsObserver::RecordSoftNavigationMetrics() {
+  const auto& soft_navigation_metrics =
+      GetDelegate().GetSoftNavigationMetrics();
+  ukm::SourceId ukm_source_id =
+      GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
+          soft_navigation_metrics.same_document_metrics_token);
   if (ukm_source_id == ukm::kInvalidSourceId) {
     return;
   }
@@ -781,22 +783,24 @@ void UkmPageLoadMetricsObserver::RecordSoftNavigationMetrics(
                 .num_user_interactions()));
   }
 
-  // Don't report CLS if we were never in the foreground.
-  if (!last_time_shown_.is_null()) {
-    const std::optional<float> cwv_cls_value =
-        GetCoreWebVitalsSoftNavigationIntervalCLS();
-    if (cwv_cls_value.has_value()) {
-      builder
-          .SetLayoutInstability_MaxCumulativeShiftScore_SessionWindow_Gap1000ms_Max5000ms(
-              page_load_metrics::LayoutShiftUkmValue(*cwv_cls_value));
-      // Report UMA using same binning as all WebVitals.CumulativeLayoutShift
-      // histograms; the binning ensures changes close to zero can accurately
-      // be measured.
-      base::UmaHistogramCustomCounts(
-          "PageLoad.SoftNavigation.CumulativeLayoutShift",
-          page_load_metrics::LayoutShiftUmaValue10000(*cwv_cls_value), 1, 24000,
-          50);
-    }
+  // Since soft navigations require input, and input can only be received in the
+  // foreground, it should be safe to assume that the frame was in the
+  // foreground at least once.
+  CHECK(!last_time_shown_.is_null(), base::NotFatalUntil::M151);
+
+  const std::optional<float> cwv_cls_value =
+      GetCoreWebVitalsSoftNavigationIntervalCLS();
+  if (cwv_cls_value.has_value()) {
+    builder
+        .SetLayoutInstability_MaxCumulativeShiftScore_SessionWindow_Gap1000ms_Max5000ms(
+            page_load_metrics::LayoutShiftUkmValue(*cwv_cls_value));
+    // Report UMA using same binning as all WebVitals.CumulativeLayoutShift
+    // histograms; the binning ensures changes close to zero can accurately
+    // be measured.
+    base::UmaHistogramCustomCounts(
+        "PageLoad.SoftNavigation.CumulativeLayoutShift",
+        page_load_metrics::LayoutShiftUmaValue10000(*cwv_cls_value), 1, 24000,
+        50);
   }
 
   builder.Record(ukm::UkmRecorder::Get());
@@ -878,17 +882,16 @@ void UkmPageLoadMetricsObserver::
 }
 
 void UkmPageLoadMetricsObserver::OnSoftNavigation() {
-  const auto& current_soft_navigation_metrics =
-      GetDelegate().GetSoftNavigationMetrics();
-
+  CHECK_GE(soft_navigation_count_, 0);
+  soft_navigation_count_++;
   // When the 1st soft navigation comes in, we record the
   // soft_navigation_interval_responsiveness_metrics_normalization_ as INP
   // before soft nav.
-  if (current_soft_navigation_metrics.soft_navigation_offset == 0) {
+  if (soft_navigation_count_ == 1) {
     RecordLargestContentfulPaintBeforeSoftNavigation();
     RecordResponsivenessMetricsBeforeSoftNavigationForMainFrame();
     RecordLayoutShiftBeforeSoftNavigationForMainFrame();
-  } else if (current_soft_navigation_metrics.soft_navigation_offset > 0) {
+  } else {
     // We only want to record metrics once for each soft navigation. So we flush
     // the current soft navigation metrics when the next soft navigation starts.
     // So the first soft navigation metrics are recorded when the second soft
@@ -896,10 +899,7 @@ void UkmPageLoadMetricsObserver::OnSoftNavigation() {
     // when the third soft navigation starts, etc. The final soft navigation
     // metrics are recorded in `RecordTimingMetrics` at the end of the page
     // load.
-    RecordSoftNavigationMetrics(
-        GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
-            current_soft_navigation_metrics.same_document_metrics_token),
-        current_soft_navigation_metrics);
+    RecordSoftNavigationMetrics();
   }
 }
 
@@ -1229,26 +1229,21 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
 }
 
 void UkmPageLoadMetricsObserver::RecordLastSoftNavigation() {
-  ukm::builders::PageLoad builder(GetDelegate().GetPageUkmSourceId());
-
-  const auto& soft_navigation_metrics =
-      GetDelegate().GetSoftNavigationMetrics();
-  builder.SetSoftNavigationCount(
-      soft_navigation_metrics.soft_navigation_offset);
+  CHECK_GE(soft_navigation_count_, 0);
 
   // Record last soft navigation metrics. The smallest count that would be set
   // for an actual soft navigation metric is 1.
-  if (soft_navigation_metrics.soft_navigation_offset) {
-    RecordSoftNavigationMetrics(
-        GetDelegate().GetUkmSourceIdForSameDocumentNavigation(
-            soft_navigation_metrics.same_document_metrics_token),
-        soft_navigation_metrics);
+  if (soft_navigation_count_) {
+    RecordSoftNavigationMetrics();
   }
+
+  ukm::builders::PageLoad builder(GetDelegate().GetPageUkmSourceId());
+  builder.SetSoftNavigationCount(soft_navigation_count_);
   builder.Record(ukm::UkmRecorder::Get());
 
   // Record soft navigation count histogram to UMA.
   base::UmaHistogramCounts100(kHistogramSoftNavigationCount,
-                              soft_navigation_metrics.soft_navigation_offset);
+                              soft_navigation_count_);
 }
 
 void UkmPageLoadMetricsObserver::RecordInternalTimingMetrics(
@@ -1547,13 +1542,12 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability() {
       page_load_metrics::LayoutShiftUmaValue(
           metrics::GetPseudoMetricsSample(layout_shift_score)));
 
-  TRACE_EVENT_INSTANT1("loading", "CumulativeShiftScore::AllFrames::UMA",
-                       TRACE_EVENT_SCOPE_THREAD, "data",
-                       CumulativeShiftScoreTraceData(
-                           GetDelegate().GetPageRenderData().layout_shift_score,
-                           GetDelegate()
-                               .GetPageRenderData()
-                               .layout_shift_score_before_input_or_scroll));
+  TRACE_EVENT_INSTANT("loading", "CumulativeShiftScore::AllFrames::UMA", "data",
+                      CumulativeShiftScoreTraceData(
+                          GetDelegate().GetPageRenderData().layout_shift_score,
+                          GetDelegate()
+                              .GetPageRenderData()
+                              .layout_shift_score_before_input_or_scroll));
 }
 
 void UkmPageLoadMetricsObserver::ReportLayoutInstabilityAfterFirstForeground() {
@@ -1855,18 +1849,17 @@ void UkmPageLoadMetricsObserver::OnTimingUpdate(
           .MergeMainFrameAndSubframes();
 
   if (paint.ContainsValidTime()) {
-    TRACE_EVENT_INSTANT2(
+    TRACE_EVENT_INSTANT(
         "loading",
-        "NavStartToLargestContentfulPaint::Candidate::AllFrames::UKM",
-        TRACE_EVENT_SCOPE_THREAD, "data", paint.DataAsTraceValue(),
-        "main_frame_tree_node_id",
+        "NavStartToLargestContentfulPaint::Candidate::AllFrames::UKM", "data",
+        paint.DataAsTraceValue(), "main_frame_tree_node_id",
         GetDelegate().GetLargestContentfulPaintHandler().MainFrameTreeNodeId());
   } else {
-    TRACE_EVENT_INSTANT1(
+    TRACE_EVENT_INSTANT(
         "loading",
         "NavStartToLargestContentfulPaint::"
         "Invalidate::AllFrames::UKM",
-        TRACE_EVENT_SCOPE_THREAD, "main_frame_tree_node_id",
+        "main_frame_tree_node_id",
         GetDelegate().GetLargestContentfulPaintHandler().MainFrameTreeNodeId());
   }
 
@@ -1876,24 +1869,23 @@ void UkmPageLoadMetricsObserver::OnTimingUpdate(
               .GetExperimentalLargestContentfulPaintHandler()
               .MergeMainFrameAndSubframes();
   if (experimental_largest_contentful_paint.ContainsValidTime()) {
-    TRACE_EVENT_INSTANT2(
+    TRACE_EVENT_INSTANT(
         "loading",
         "NavStartToExperimentalLargestContentfulPaint::Candidate::AllFrames::"
         "UKM",
-        TRACE_EVENT_SCOPE_THREAD, "data",
-        experimental_largest_contentful_paint.DataAsTraceValue(),
+        "data", experimental_largest_contentful_paint.DataAsTraceValue(),
         "main_frame_tree_node_id",
         GetDelegate()
             .GetExperimentalLargestContentfulPaintHandler()
             .MainFrameTreeNodeId());
   } else {
-    TRACE_EVENT_INSTANT1("loading",
-                         "NavStartToExperimentalLargestContentfulPaint::"
-                         "Invalidate::AllFrames::UKM",
-                         TRACE_EVENT_SCOPE_THREAD, "main_frame_tree_node_id",
-                         GetDelegate()
-                             .GetExperimentalLargestContentfulPaintHandler()
-                             .MainFrameTreeNodeId());
+    TRACE_EVENT_INSTANT("loading",
+                        "NavStartToExperimentalLargestContentfulPaint::"
+                        "Invalidate::AllFrames::UKM",
+                        "main_frame_tree_node_id",
+                        GetDelegate()
+                            .GetExperimentalLargestContentfulPaintHandler()
+                            .MainFrameTreeNodeId());
   }
 }
 

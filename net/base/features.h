@@ -684,6 +684,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kRestrictAbusePortsOnLocalhost);
 // trust.
 NET_EXPORT BASE_DECLARE_FEATURE(kTLSTrustAnchorIDs);
 
+// Enables ML-DSA signature support in TLS (draft-ietf-tls-mldsa-02).
+NET_EXPORT BASE_DECLARE_FEATURE(kTlsMldsaSignatures);
+
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 // Enables support for Merkle Tree Certificates. `kTLSTrustAnchorIDs` must also
 // be enabled for this to be useful.
@@ -699,9 +702,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTcpSocketPoolLimitRandomization);
 // The base of an exponent when calculating the probability.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(double,
                                       kTcpSocketPoolLimitRandomizationBase);
-// The maximum amount of additional sockets to allow use of.
-NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
-                                      kTcpSocketPoolLimitRandomizationCapacity);
 // The minimum probability allowed to be returned.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(double,
                                       kTcpSocketPoolLimitRandomizationMinimum);

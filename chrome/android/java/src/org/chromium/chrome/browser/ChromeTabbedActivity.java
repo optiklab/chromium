@@ -2011,11 +2011,6 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
     private boolean maybeHandleGroupUrlsIntent(Intent intent, TabGroupMetadata tabGroupMetadata) {
         @TabOpenType int tabOpenType = IntentHandler.getTabOpenType(intent);
 
-        // Records tab group reparenting group size histogram.
-        int tabGroupSizeBeforeReparent = tabGroupMetadata.tabIdsToUrls.size();
-        RecordHistogram.recordCount1000Histogram(
-                "Android.Reparent.TabGroup.GroupSize", tabGroupSizeBeforeReparent);
-
         ArrayList<Tab> tabs = new ArrayList<>();
         for (Map.Entry<Integer, String> entry : tabGroupMetadata.tabIdsToUrls) {
             int tabId = entry.getKey();
@@ -2057,20 +2052,6 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
                         isTabStripVisible,
                         dropIndex));
 
-        // Records tab group reparenting group size diff histogram.
-        int tabGroupSizeAfterReparent = tabModel.getTabCountForGroup(tabGroupMetadata.tabGroupId);
-        RecordHistogram.recordCount1000Histogram(
-                "Android.Reparent.TabGroup.GroupSize.Diff",
-                tabGroupSizeBeforeReparent - tabGroupSizeAfterReparent);
-
-        // Records tab group reparenting duration histogram.
-        long startTime =
-                IntentUtils.safeGetLongExtra(intent, IntentHandler.EXTRA_REPARENT_START_TIME, -1);
-        if (startTime > 0) {
-            long endTime = SystemClock.elapsedRealtime();
-            RecordHistogram.recordLongTimesHistogram(
-                    "Android.Reparent.TabGroup.Duration", endTime - startTime);
-        }
         IntentUtils.safeRemoveExtra(intent, IntentHandler.EXTRA_REPARENT_START_TIME);
         IntentUtils.safeRemoveExtra(intent, IntentHandler.EXTRA_TAB_GROUP_METADATA);
         return true;
@@ -2546,7 +2527,7 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
         boolean incognito = mSupportedProfileType == SupportedProfileType.OFF_THE_RECORD;
 
         String url = null;
-        GURL homepageGurl = HomepageManager.getInstance().getHomepageGurl(incognito);
+        GURL homepageGurl = HomepageManager.getInstance().getHomepageGurlForZeroTabs(incognito);
 
         ProfileProvider profileProvider = getProfileProviderSupplier().get();
         Profile profile =
@@ -3598,7 +3579,8 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
                         this,
                         mNextTabPolicySupplier,
                         mMismatchedIndicesHandler,
-                        mWindowId);
+                        mWindowId,
+                        mSupportedProfileType);
         if (!tabModelWasCreated) {
             finishAndRemoveTask();
             return;

@@ -81,6 +81,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxTabUtils.java",
     "java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxViewBinder.java",
     "java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxViewHolder.java",
+    "java/src/org/chromium/chrome/browser/omnibox/fusebox/SuggestedTabInfo.java",
     "java/src/org/chromium/chrome/browser/omnibox/geo/GeolocationHeader.java",
     "java/src/org/chromium/chrome/browser/omnibox/geo/GeolocationTracker.java",
     "java/src/org/chromium/chrome/browser/omnibox/status/PageInfoIphController.java",
@@ -235,6 +236,7 @@ android_library("java") {
     "//chrome/browser/ui/android/page_info:java",
     "//chrome/browser/ui/android/searchactivityutils:java",
     "//chrome/browser/ui/android/theme:java",
+    "//chrome/browser/ui/android/toolbar:optional_button_java",
     "//chrome/browser/ui/android/toolbar:variation_utils_java",
     "//chrome/browser/ui/messages/android:java",
     "//chrome/browser/url_constants/android:java",
@@ -328,6 +330,7 @@ generate_jni("jni_headers") {
     "java/src/org/chromium/chrome/browser/omnibox/OmniboxPrerender.java",
     "java/src/org/chromium/chrome/browser/omnibox/OmniboxViewUtil.java",
     "java/src/org/chromium/chrome/browser/omnibox/fusebox/ComposeboxQueryControllerBridge.java",
+    "java/src/org/chromium/chrome/browser/omnibox/fusebox/SuggestedTabInfo.java",
     "java/src/org/chromium/chrome/browser/omnibox/geo/GeolocationHeader.java",
     "java/src/org/chromium/chrome/browser/omnibox/suggestions/AutocompleteController.java",
   ]
@@ -674,5 +677,5 @@ robolectric_library("junit") {
     "//url:gurl_java",
     "//url:gurl_junit_test_support",
   ]
-  resources_package = "org.chromium.chrome.browser.omnibox.test"
+  resources_package = "org.chromium.chrome.browser.omnibox"
 }

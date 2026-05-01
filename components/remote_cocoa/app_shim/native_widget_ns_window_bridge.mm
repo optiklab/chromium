@@ -1437,12 +1437,7 @@ void NativeWidgetNSWindowBridge::OnVisibilityChanged() {
 }
 
 void NativeWidgetNSWindowBridge::OnSpaceActivationMayHaveChanged() {
-  const bool window_on_active_space = window_.onActiveSpace;
-  if (window_on_active_space_ == window_on_active_space) {
-    return;
-  }
-  window_on_active_space_ = window_on_active_space;
-  host_->OnSpaceActivationChanged(window_on_active_space);
+  host_->OnSpaceActivationChanged(window_.onActiveSpace);
 }
 
 void NativeWidgetNSWindowBridge::OnSystemColorsChanged() {
@@ -1649,16 +1644,31 @@ void NativeWidgetNSWindowBridge::FullscreenControllerSetFrame(
 
 void NativeWidgetNSWindowBridge::FullscreenControllerToggleFullscreen() {
   bool is_key_window = [window_ isKeyWindow];
+
+  // If a request to close the window comes in during the nested loop of
+  // -[NSWindow toggleFullScreen:], `this` may be destroyed when the call
+  // returns (see NativeWidgetNSWindowFullscreenController::
+  // HandleDeferredClose). Use a weak pointer to check for this case.
+  // https://crbug.com/503792787
+  auto weak_ptr = factory_.GetWeakPtr();
   [window_ toggleFullScreen:nil];
-  // Ensure the transitioning window maintains focus.
-  // When a key window moves to a different space, AppKit will focus a
-  // different window on the previously focused space to become key, which can
+  if (!weak_ptr) {
+    return;
+  }
+
+  // Ensure the transitioning window and any companion windows (such as speaker
+  // notes) maintain focus and Z order when moving to fullscreen. When a key
+  // window becomes fullscreen in a different space, AppKit will sometimes make
+  // different window on the previously focused space the key window, which can
   // break cross-display fullscreen transitions by losing focus of the
-  // transitioning window (crbug.com/1338659) or changing the z-order of
-  // windows on the previous space. Making the window key here seems to
-  // alleviate those apparent defects (crbug.com/1392542).
-  if (is_key_window)
+  // transitioning window (crbug.com/40229685) or changing the z-order of
+  // windows on the previous space (crbug.com/40247797). This is only done when
+  // transitioning to fullscreen, as changes to window order during the
+  // transition from fullscreen can break the transition animation
+  // (crbug.com/503845404)
+  if (is_key_window && [window_ styleMask] & NSWindowStyleMaskFullScreen) {
     [window_ makeKeyAndOrderFront:nil];
+  }
 }
 
 void NativeWidgetNSWindowBridge::FullscreenControllerCloseWindow() {
@@ -1877,7 +1887,7 @@ void NativeWidgetNSWindowBridge::SetAspectRatio(
 }
 
 void NativeWidgetNSWindowBridge::SetCALayerParams(
-    const gfx::CALayerParams& ca_layer_params) {
+    gfx::CALayerParams ca_layer_params) {
   // Ignore frames arriving "late" for an old size. A frame at the new size
   // should arrive soon.
   // TODO(danakj): We should avoid lossy conversions to integer DIPs.
@@ -1889,7 +1899,7 @@ void NativeWidgetNSWindowBridge::SetCALayerParams(
 
   // Update the DisplayCALayerTree with the most recent CALayerParams, to make
   // the content display on-screen.
-  display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
+  display_ca_layer_tree_->UpdateCALayerTree(std::move(ca_layer_params));
 
   if (ca_transaction_sync_suppressed_)
     ca_transaction_sync_suppressed_ = false;
@@ -2018,28 +2028,15 @@ void NativeWidgetNSWindowBridge::RemoveOrDestroyChildren() {
 }
 
 void NativeWidgetNSWindowBridge::CheckAndNotifyZoomedStateChanged() {
-  const bool window_zoomed = [window_ isZoomed];
-  if (window_zoomed_ == window_zoomed)
-    return;
-
-  window_zoomed_ = window_zoomed;
-
-  // Notify that the window's zoomed state has changed.
-  host_->OnWindowZoomedChanged(window_zoomed_);
+  host_->OnWindowZoomedChanged(window_.isZoomed);
 }
 
 void NativeWidgetNSWindowBridge::CheckAndNotifyAllWorkspacesStateChanged() {
   const bool visible_on_all_spaces =
       ([window_ collectionBehavior] &
        NSWindowCollectionBehaviorCanJoinAllSpaces) != 0;
-  if (visible_on_all_spaces_ == visible_on_all_spaces) {
-    return;
-  }
-
-  visible_on_all_spaces_ = visible_on_all_spaces;
-
   // Notify that the window's "visible on all spaces" state has changed.
-  host_->OnVisibleOnAllWorkspacesChanged(visible_on_all_spaces_);
+  host_->OnVisibleOnAllWorkspacesChanged(visible_on_all_spaces);
 }
 
 void NativeWidgetNSWindowBridge::NotifyVisibilityChangeDown() {
@@ -2101,13 +2098,6 @@ bool NativeWidgetNSWindowBridge::IsWindowModalSheet() const {
 }
 
 void NativeWidgetNSWindowBridge::ShowAsModalSheet() {
-  // -[NSWindow beginSheet:completionHandler:] will block the UI thread while
-  // the animation runs. So that it doesn't animate a fully transparent window,
-  // first wait for a frame. The first step is to pretend that the window is
-  // already visible.
-  window_visible_ = true;
-  host_->OnVisibilityChanged(window_visible_);
-
   NSWindow* parent_window = parent_->ns_window();
   if (NativeWidgetMacNSWindow* parent_widget_window =
           base::apple::ObjCCast<NativeWidgetMacNSWindow>(parent_window)) {

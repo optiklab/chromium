@@ -82,6 +82,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.AndroidAutofillAvailabilityStatus;
 import org.chromium.chrome.browser.autofill.AutofillClientProviderUtils;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
@@ -103,7 +104,6 @@ import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.R;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.FieldType;
 import org.chromium.components.autofill.RecordType;
@@ -1137,7 +1137,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
         instancesMap.put(vehicleType, Arrays.asList(entity1));
@@ -1172,7 +1173,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity2 =
                 new EntityInstanceWithLabels(
@@ -1180,7 +1182,8 @@ public class AutofillProfilesFragmentTest {
                         passportType,
                         /*entityName*/ "Passport",
                         /* entityInstanceSubLabel= */ "Germany",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1347,7 +1350,12 @@ public class AutofillProfilesFragmentTest {
 
         EntityInstanceWithLabels entity =
                 new EntityInstanceWithLabels(
-                        "guid1", disabledType, "Label", "Sublabel", /* storedInWallet= */ false);
+                        "guid1",
+                        disabledType,
+                        "Label",
+                        "Sublabel",
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1388,7 +1396,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "B",
                         /* entityInstanceSubLabel= */ "2",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity2 =
                 new EntityInstanceWithLabels(
@@ -1396,7 +1405,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "A",
                         /* entityInstanceSubLabel= */ "1",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         EntityInstanceWithLabels entity3 =
                 new EntityInstanceWithLabels(
@@ -1404,7 +1414,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "A",
                         /* entityInstanceSubLabel= */ "2",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         // Sorting is now expected to be done by getInstancesToList.
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
@@ -1580,7 +1591,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1718,8 +1730,11 @@ public class AutofillProfilesFragmentTest {
     @Test
     @MediumTest
     @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
     public void testAutofillAiEntities_opensWalletOnClick() throws Exception {
         EntityType vehicleType = TestUtils.getVehicleEntityType();
+
+        String expectedUrl = "https://wallet.com/private";
 
         EntityInstanceWithLabels entity1 =
                 new EntityInstanceWithLabels(
@@ -1727,7 +1742,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ true);
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ expectedUrl);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1749,6 +1765,50 @@ public class AutofillProfilesFragmentTest {
         Instrumentation.ActivityResult result =
                 new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
         // Since we don't have Google Wallet installed in tests, it will fallback to CCT.
+        var intentMatcher = allOf(hasAction(Intent.ACTION_VIEW), hasData(Uri.parse(expectedUrl)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletDefaultPage_whenUrlIsNull() throws Exception {
+        EntityType vehicleType = TestUtils.getVehicleEntityType();
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        vehicleType,
+                        /* entityInstanceLabel= */ "Vehicle",
+                        /* entityInstanceSubLabel= */ "Mercedez",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ null);
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(vehicleType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference vehicleEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(vehicleEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        // Since the walletEntityUrl is null, it should fallback to the general passes page.
         var intentMatcher =
                 allOf(
                         hasAction(Intent.ACTION_VIEW),
@@ -1756,6 +1816,99 @@ public class AutofillProfilesFragmentTest {
         intending(intentMatcher).respondWith(result);
 
         ThreadUtils.runOnUiThreadBlocking(vehicleEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletPrivatePassPageOnClick() throws Exception {
+        EntityType passportType = TestUtils.getPassportEntityType();
+
+        String expectedUrl = "https://wallet.com/private";
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        passportType,
+                        /* entityInstanceLabel= */ "Passport",
+                        /* entityInstanceSubLabel= */ "Germany",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ expectedUrl);
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(passportType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference passportEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(passportEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        var intentMatcher = allOf(hasAction(Intent.ACTION_VIEW), hasData(Uri.parse(expectedUrl)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(passportEntity::performClick);
+
+        intended(intentMatcher);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @DisableFeatures(ChromeFeatureList.AUTOFILL_AI_WALLET_PRIVATE_PASSES_DEEP_LINK)
+    public void testAutofillAiEntities_opensWalletPrivatePassPageOnClick_featureDisabled()
+            throws Exception {
+        EntityType passportType = TestUtils.getPassportEntityType();
+
+        EntityInstanceWithLabels entity1 =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        passportType,
+                        /* entityInstanceLabel= */ "Passport",
+                        /* entityInstanceSubLabel= */ "Germany",
+                        /* storedInWallet= */ true,
+                        /* walletEntityUrl= */ "https://wallet.com/private");
+
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(passportType, Arrays.asList(entity1));
+
+        when(sEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+        EntityDataManagerFactory.setInstanceForTesting(sEntityDataManager);
+
+        // Trigger a rebuild of the profile list to pick up the new mock entities.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> sSettingsActivityTestRule.getFragment().onPersonalDataChanged());
+
+        Preference passportEntity =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> sSettingsActivityTestRule.getFragment().findPreference("guid1"));
+        assertNotNull(passportEntity);
+
+        // Mock the intent that should be fired.
+        Instrumentation.ActivityResult result =
+                new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+        // Since the deep link feature is disabled, it should fallback to the general passes page.
+        var intentMatcher =
+                allOf(
+                        hasAction(Intent.ACTION_VIEW),
+                        hasData(Uri.parse(GoogleWalletLauncher.GOOGLE_WALLET_PASSES_URL)));
+        intending(intentMatcher).respondWith(result);
+
+        ThreadUtils.runOnUiThreadBlocking(passportEntity::performClick);
 
         intended(intentMatcher);
     }
@@ -1772,7 +1925,8 @@ public class AutofillProfilesFragmentTest {
                         vehicleType,
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap1 =
                 new LinkedHashMap<>();
@@ -1881,7 +2035,8 @@ public class AutofillProfilesFragmentTest {
                         TestUtils.getVehicleEntityType(),
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();
@@ -1930,7 +2085,8 @@ public class AutofillProfilesFragmentTest {
                         TestUtils.getVehicleEntityType(),
                         /* entityInstanceLabel= */ "Vehicle",
                         /* entityInstanceSubLabel= */ "Mercedez",
-                        /* storedInWallet= */ false);
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
 
         LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
                 new LinkedHashMap<>();

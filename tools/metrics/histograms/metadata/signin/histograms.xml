@@ -178,6 +178,40 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="Signin.AccountCapabilities.ExternalPrivacyContextBuildDuration"
+    units="ms" expires_after="2026-09-01">
+  <owner>ddac@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the duration it takes to build the External Privacy Context for an
+    identity. Recorded when the asynchronous EPC build operation finishes. (iOS
+    only).
+  </summary>
+</histogram>
+
+<histogram
+    name="Signin.AccountCapabilities.ExternalPrivacyContextBuildErrorCode"
+    units="ErrorCode" expires_after="2026-09-01">
+  <owner>ddac@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records the error code when the External Privacy Context build fails.
+    Recorded when the asynchronous EPC build operation finishes with an error.
+    (iOS only).
+  </summary>
+</histogram>
+
+<histogram name="Signin.AccountCapabilities.ExternalPrivacyContextBuildSuccess"
+    enum="BooleanSuccess" expires_after="2026-09-01">
+  <owner>ddac@google.com</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Records whether the External Privacy Context build was successful or not.
+    Recorded when the asynchronous EPC build operation finishes. (iOS only).
+  </summary>
+</histogram>
+
 <histogram name="Signin.AccountCapabilities.FetchLatency" units="ms"
     expires_after="2026-09-27">
   <owner>tju@google.com</owner>
@@ -2418,7 +2452,7 @@ the browser and content area. -->
 </histogram>
 
 <histogram name="Signin.LoadedIdentities.Count" units="identities"
-    expires_after="2026-05-03">
+    expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -2431,7 +2465,7 @@ the browser and content area. -->
 </histogram>
 
 <histogram name="Signin.LoadedIdentities.Duration" units="ms"
-    expires_after="2026-04-26">
+    expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -2458,7 +2492,7 @@ the browser and content area. -->
 </histogram>
 
 <histogram name="Signin.LoadedIdentities.IdentityWithAuthErrorCount"
-    units="identities" expires_after="2026-05-03">
+    units="identities" expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -2783,6 +2817,34 @@ should be kept to monitor/debug signin Multilogin issues-->
   </summary>
 </histogram>
 
+<histogram name="Signin.ProcessMirrorHeaders.LoadingDialog.Status"
+    enum="WebSigninLoadingDialogStatus" expires_after="2027-04-22">
+  <owner>mlbipin@google.com</owner>
+  <owner>chrome-signin-mobile-team@google.com</owner>
+  <summary>
+    Records whether the web signin loading dialog was shown, not shown (because
+    signin finished fast enough), or dismissed by the user. Recorded when the
+    web signin process finishes or the dialog is dismissed.
+  </summary>
+</histogram>
+
+<histogram name="Signin.ProcessMirrorHeaders.LoadingDuration.{Result}"
+    units="ms" expires_after="2027-04-22">
+  <owner>mlbipin@google.com</owner>
+  <owner>chrome-signin-mobile-team@google.com</owner>
+  <summary>
+    Time taken for cookies to be minted and the user to be redirected to a
+    specified URL. Recorded from when the WebSigninRedirectCoordinator is
+    initialized to when the user either gets redirected or if the user receives
+    an error.
+  </summary>
+  <token key="Result">
+    <variant name="AuthError" summary="An auth error occurred"/>
+    <variant name="OtherError" summary="An other error occurred"/>
+    <variant name="Success" summary="The web sign-in succeeded"/>
+  </token>
+</histogram>
+
 <histogram name="Signin.Promo.ImpressionsUntil.{Action}.{AccessPoint}"
     units="impressions" expires_after="2026-10-25">
   <owner>myuu@google.com</owner>
@@ -3059,7 +3121,7 @@ OAuth Multilogin call. -->
 </histogram>
 
 <histogram name="Signin.ShowManageAccountFromGaia.BrowserType"
-    enum="ChromeBrowserType" expires_after="2026-05-01">
+    enum="ChromeBrowserType" expires_after="2027-04-01">
   <owner>jlebel@chromium.org</owner>
   <owner>chrome-signin-mobile-team@google.com</owner>
   <summary>

@@ -30,7 +30,11 @@ extern const base::FeatureParam<bool> kAutoOpenGlicForPdfWithOnboarding;
 BASE_DECLARE_FEATURE(kGlicInvoke);
 
 BASE_DECLARE_FEATURE(kGlicSelectionPrompt);
+extern const base::FeatureParam<bool> kGlicSelectionPromptUpdatesOnly;
 extern const base::FeatureParam<bool> kGlicSelectionPromptUseWidget;
+extern const base::FeatureParam<std::string> kGlicSelectionTopCueOnlyList;
+extern const base::FeatureParam<int>
+    kGlicSelectionPromptWidgetMaxTotalDismisses;
 
 BASE_DECLARE_FEATURE(kGlicCreateTabAdjacent);
 
@@ -74,12 +78,15 @@ BASE_DECLARE_FEATURE(kGlicGetTabFaviconById);
 
 BASE_DECLARE_FEATURE(kGlicSkipCookieSyncOnOpen);
 BASE_DECLARE_FEATURE(kGlicCookieSyncOnTokenChange);
+BASE_DECLARE_FEATURE(kGlicShareImageViaInvoke);
 
 BASE_DECLARE_FEATURE(kGlicWebClientLoadTimes);
 extern const base::FeatureParam<int> kGlicPreLoadingTimeMs;
 extern const base::FeatureParam<int> kGlicMinLoadingTimeMs;
 extern const base::FeatureParam<int> kGlicMaxLoadingTimeMs;
 extern const base::FeatureParam<int> kGlicReloadMaxLoadingTimeMs;
+
+BASE_DECLARE_FEATURE(kGlicContextualCueingV2AutoSubmit);
 
 }  // namespace features
 

@@ -45,6 +45,12 @@ class BrowserViewTabbedLayoutImpl : public BrowserViewLayoutImpl {
       const BrowserLayoutParams& params) override;
 
  private:
+  // Does the works of laying out the top container.
+  gfx::Rect CalculateTopContainerLayoutImpl(ProposedLayout& layout,
+                                            BrowserLayoutParams params,
+                                            bool needs_exclusion,
+                                            bool suppress_top_separator) const;
+
   // Gets the amount of padding to place between
   int GetMinimumGrabHandlePadding() const;
 
@@ -108,7 +114,8 @@ class BrowserViewTabbedLayoutImpl : public BrowserViewLayoutImpl {
     double expand_on_hover = 0.0;
   };
   VerticalTabStripAnimation CalculateVerticalTabStripAnimation(
-      const BrowserLayoutParams& params) const;
+      const BrowserLayoutParams& params,
+      WindowState window_state) const;
 
   // Returns the type of tabstrip present.
   enum class TabStripType { kNone, kVertical, kHorizontal };
@@ -141,6 +148,12 @@ class BrowserViewTabbedLayoutImpl : public BrowserViewLayoutImpl {
   // Returns the leading margin for the horizontal tab strip region.
   int GetHorizontalTabStripLeadingMargin(
       const BrowserLayoutParams& params) const;
+
+  // Returns whether to make small adjustments to avoid visual "cracking" due to
+  // discrepancies between pixel and dip scaling; see
+  // https://crbug.com/436278099 for more information on the Pixel Canvas
+  // project which aims to permanently avoid this issue.
+  bool AvoidCrackingForFractionalDisplay() const;
 
   // These cached values serve as a starting point when an expand-on-hover state
   // for the vertical tab strip is animated directly to the expanded state. They

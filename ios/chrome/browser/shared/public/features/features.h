@@ -32,6 +32,24 @@ BASE_DECLARE_FEATURE(kSafetyCheckAutorunByManagerKillswitch);
 // Stack if no issues are found.
 BASE_DECLARE_FEATURE(kSafetyCheckModuleHiddenIfNoIssuesKillswitch);
 
+// Enum defining the available Tab Grid setup modes.
+enum class TabGridSetupMode {
+  // The Tab Grid is set up immediately at startup (legacy behavior).
+  kImmediate = 0,
+  // The Tab Grid is set up after startup, once the UI thread is idle.
+  kDeferred = 1,
+
+  // For simulating the race condition where the user navigates to
+  // the tab grid before deferred setup is complete.
+  kLazy_ForTesting = 2,
+};
+
+// Feature flag to control Tab Grid setup mode.
+BASE_DECLARE_FEATURE(kTabGridSetupMode);
+extern const base::FeatureParam<int> kTabGridSetupModeParam;
+extern const char kTabGridSetupModeParamName[];
+TabGridSetupMode GetTabGridSetupMode();
+
 // Feature to enable the refactored implementation of the `OmahaService`, using
 // new `OmahaServiceObserver`(s) for Omaha clients. Acts as a killswitch.
 BASE_DECLARE_FEATURE(kOmahaServiceRefactor);
@@ -725,6 +743,13 @@ extern const char kEnableFuseboxKeyboardAccessoryOnlySymbols[];
 extern const char kEnableFuseboxKeyboardAccessoryOnlyFeatures[];
 extern const char kEnableFuseboxKeyboardAccessoryBoth[];
 
+// Enables the placeholder text to be "Ask..." instead of "Search..." when
+// AI Omnibox is available.
+BASE_DECLARE_FEATURE(kAIOmniboxAskPlaceholder);
+
+// Returns true if the AIOmniboxAskPlaceholder feature is enabled.
+bool IsAIOmniboxAskPlaceholderEnabled();
+
 // Returns true if keyboard accessory is enabled.
 bool ShouldShowKeyboardAccessory();
 // Returns true if the symbols :/- and .com in the keyboard accessory are
@@ -991,5 +1016,8 @@ BASE_DECLARE_FEATURE(kAssistantAimMinimizedState);
 
 // Returns true if the `AssistantAimMinimizedState` feature is enabled.
 bool IsAssistantAimMinimizedStateEnabled();
+
+// Feature flag to enable the use of UIGraphicsImageRenderer for fallback icons.
+BASE_DECLARE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons);
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

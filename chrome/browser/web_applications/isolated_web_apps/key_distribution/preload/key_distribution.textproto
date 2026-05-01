@@ -106,9 +106,19 @@ iwa_access_control {
     key: "alxuw6tyvg7ri6eekczt3magynxwwqeoyndxjmiwuz33dlz6jnjr2aacai"
     value: {}
   }
+  # crbug.com/505852387
+  managed_allowlist {
+    key: "amiyfm2piovvkvzy4i7glahjsd4udzlk3ghtvfxd7lxv2chcbmsfcaacai"
+    value: {}
+  }
   # crbug.com/453958646
   managed_allowlist {
     key: "aolx6xos3h4fx7beotfbqbh36e4yp5lhqkvcyawhlidphewmmq7hsaacai"
+    value: {}
+  }
+  # crbug.com/492435576
+  managed_allowlist {
+    key: "ay6nbrwcfxvv66fterauuvjwdohunby6vdfp7cpz2v3p63tw77taaaic"
     value: {}
   }
   # crbug.com/452607018

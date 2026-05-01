@@ -401,18 +401,18 @@ class PDFiumEngine : public DocumentLoader::Client,
                                 float device_pixel_ratio,
                                 SendThumbnailCallback send_callback);
 #if BUILDFLAG(ENABLE_PDF_INK2)
-  // See method of the same name in PdfInkModuleClient.
-  void AddFont(FontId font_id, base::span<const uint8_t> serialized_typeface);
+  // See method of the same name in PdfInkModuleClient. Virtual to support
+  // testing.
+  virtual void AddFont(FontId font_id,
+                       base::span<const uint8_t> serialized_typeface);
   // Returns a font that was previously loaded with AddFont().
   FPDF_FONT GetAddedFont(FontId font_id);
 
   // See method of the same name in PdfInkModuleClient.
   void DrawText(int page_index,
                 base::span<const InkTextInfo> text_info,
-                SkColor color,
-                float css_font_size,
                 double pdf_zoom,
-                const gfx::RectF& textbox);
+                const InkTextBoxAttributes& attributes);
 
   // Virtual to support testing.
   virtual gfx::Size GetThumbnailSize(int page_index, float device_pixel_ratio);
@@ -1423,6 +1423,10 @@ class PDFiumEngine : public DocumentLoader::Client,
   // Key: ID to identify the font.
   // Value: The associated PDFium font objects.
   std::map<FontId, ScopedFPDFFont> font_map_;
+
+  // The next available ID for a textbox for writing into the PDF.
+  // TODO(crbug.com/408926609): Implement ID collision avoidance.
+  int next_textbox_id_ = 0;
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
   base::WeakPtrFactory<PDFiumEngine> weak_factory_{this};

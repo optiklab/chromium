@@ -8,6 +8,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/sequence_checker.h"
 #include "base/synchronization/waitable_event.h"
@@ -39,6 +40,12 @@ namespace content {
 namespace {
 static network::SharedURLLoaderFactory* g_url_loader_factory_for_testing =
     nullptr;
+
+void RecordPrePrefetchStartResultHistogram(PrePrefetchStartResult result) {
+  base::UmaHistogramEnumeration("Preloading.Prefetch.PrePrefetch.StartResult",
+                                result);
+}
+
 }  // namespace
 
 // The internal class owned by `PrePrefetchServiceImpl` to run the substantial
@@ -80,6 +87,8 @@ class PrePrefetchServiceCore {
     if (!factory_.is_connected()) {
       // TODO(crbug.com/452389538): Handle this by getting a new factory to the
       // UI thread.
+      RecordPrePrefetchStartResultHistogram(
+          PrePrefetchStartResult::kFailedURLLoaderFactoryDisconnected);
       *out_handle = nullptr;
       return;
     }
@@ -99,6 +108,8 @@ class PrePrefetchServiceCore {
       // request, just make this request fail right now.
       // TODO(crbug.com/452389538): `postTask` to the UI thread to calculate and
       // cache the header for this request.
+      RecordPrePrefetchStartResultHistogram(
+          PrePrefetchStartResult::kFailedPreCalculatedHeadersNotMatched);
       *out_handle = nullptr;
       return;
     }
@@ -115,6 +126,7 @@ class PrePrefetchServiceCore {
         pass_key, std::move(prefetch_request), std::move(new_factory),
         *ui_thread_pre_calculated_headers,
         non_ui_thread_update_headers_callbacks_);
+    RecordPrePrefetchStartResultHistogram(PrePrefetchStartResult::kStarted);
 
     // ----------------------------------------------------------------------
     // Epilogue
@@ -243,7 +255,7 @@ PrePrefetchServiceImpl::PreCalculatePrePrefetchHeadersOnUI(
           browser_context, key.origin.GetURL(),
           PrefetchType(PreloadingTriggerType::kEmbedder,
                        /*use_prefetch_proxy=*/true),
-          /*embedder_histogram_suffix=*/"Tentative", blink::mojom::Referrer(),
+          /*histogram_suffix=*/"Tentative", blink::mojom::Referrer(),
           key.javascript_enabled,
           /*referring_origin=*/std::nullopt,
           /*no_vary_search_hint=*/std::nullopt,
@@ -282,7 +294,7 @@ PrePrefetchServiceImpl::~PrePrefetchServiceImpl() {
 std::unique_ptr<PrePrefetchHandle>
 PrePrefetchServiceImpl::StartPrePrefetchRequest(
     const GURL& url,
-    const std::string& embedder_histogram_suffix,
+    const std::string& histogram_suffix,
     bool javascript_enabled,
     std::optional<net::HttpNoVarySearchData> no_vary_search_hint,
     std::optional<PrefetchPriority> priority,
@@ -301,8 +313,7 @@ PrePrefetchServiceImpl::StartPrePrefetchRequest(
           browser_context_weak_on_ui_thread_, url,
           PrefetchType(PreloadingTriggerType::kEmbedder,
                        /*use_prefetch_proxy=*/true),
-          embedder_histogram_suffix, blink::mojom::Referrer(),
-          javascript_enabled,
+          histogram_suffix, blink::mojom::Referrer(), javascript_enabled,
           /*referring_origin=*/std::nullopt, std::move(no_vary_search_hint),
           priority,
           /*attempt=*/nullptr, additional_headers,

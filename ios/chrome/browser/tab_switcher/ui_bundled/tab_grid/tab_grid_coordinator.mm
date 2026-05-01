@@ -12,6 +12,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
+#import "base/trace_event/trace_event.h"
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/collaboration/public/collaboration_flow_entry_point.h"
 #import "components/collaboration/public/collaboration_flow_type.h"
@@ -1028,6 +1029,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 #pragma mark - ChromeCoordinator
 
 - (void)start {
+  TRACE_EVENT("ui", "-[TabGridCoordinator start]");
   _modeHolder = [[TabGridModeHolder alloc]
       initWithTabGridState:_regularBrowser->GetSceneState().tabGridState];
 
@@ -1933,12 +1935,22 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                (SnackbarCoordinator*)snackbarCoordinator
                                                 forceBrowserToolbar:
                                                     (BOOL)forceBrowserToolbar {
+  CGFloat windowHeight = self.viewController.view.window.bounds.size.height;
+  if (windowHeight == 0) {
+    return 0;
+  }
   if (!self.browserLayoutViewController.browserViewController) {
     // The tab grid is being show so use tab grid bottom bar.
     // kTabGridBottomToolbarGuide is stored in the shared layout guide center.
     UIView* tabGridBottomToolbarView = [LayoutGuideCenterForBrowser(nil)
         referencedViewUnderName:kTabGridBottomToolbarGuide];
-    return CGRectGetHeight(tabGridBottomToolbarView.bounds);
+    if (IsChromeNextIaEnabled()) {
+      CGPoint originOfBottomToolbar =
+          [tabGridBottomToolbarView convertPoint:CGPointZero toView:nil];
+      return windowHeight - originOfBottomToolbar.y;
+    } else {
+      return CGRectGetHeight(tabGridBottomToolbarView.bounds);
+    }
   }
 
   if (!forceBrowserToolbar &&
@@ -1981,8 +1993,13 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   UIView* bottomToolbar = [LayoutGuideCenterForBrowser(browser)
       referencedViewUnderName:kSecondaryToolbarGuide];
-
-  return CGRectGetHeight(bottomToolbar.bounds);
+  if (IsChromeNextIaEnabled()) {
+    CGPoint originOfBottomToolbar = [bottomToolbar convertPoint:CGPointZero
+                                                         toView:nil];
+    return windowHeight - originOfBottomToolbar.y;
+  } else {
+    return CGRectGetHeight(bottomToolbar.bounds);
+  }
 }
 
 #pragma mark - TabGroupPositioner

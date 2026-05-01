@@ -19,6 +19,7 @@
 #import "base/not_fatal_until.h"
 #import "base/scoped_observation.h"
 #import "base/strings/sys_string_conversions.h"
+#import "base/trace_event/trace_event.h"
 #import "build/config/ios/swift_buildflags.h"
 #import "components/autofill/core/browser/payments/autofill_error_dialog_context.h"
 #import "components/collaboration/public/collaboration_flow_type.h"
@@ -142,7 +143,6 @@
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/infobars/model/infobar_ios.h"
 #import "ios/chrome/browser/infobars/model/infobar_manager_impl.h"
-#import "ios/chrome/browser/intelligence/bwg/coordinator/bwg_coordinator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_first_run_coordinator.h"
 #import "ios/chrome/browser/intelligence/bwg/model/bwg_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
@@ -803,7 +803,6 @@ const char kChromeAppStoreUrl[] =
   TabGroupConfirmationCoordinator* _lastTabClosingAlert;
 
   // The coordinators for Gemini related logic.
-  BWGCoordinator* _BWGCoordinator;
   GeminiFirstRunCoordinator* _geminiFirstRunCoordinator;
 
   // The coordinator for the Search What You See promo.
@@ -887,6 +886,7 @@ const char kChromeAppStoreUrl[] =
   if (self.started) {
     return;
   }
+  TRACE_EVENT("ui", "-[BrowserCoordinator start]");
 
   DCHECK(!self.viewController);
 
@@ -1472,6 +1472,7 @@ const char kChromeAppStoreUrl[] =
 }
 
 - (void)updateViewControllerDependencies {
+  TRACE_EVENT("ui", "-[BrowserCoordinator updateViewControllerDependencies]");
   BrowserViewController* viewController = self.viewController;
   _bookmarksCoordinator.baseViewController = viewController;
 
@@ -1859,9 +1860,6 @@ const char kChromeAppStoreUrl[] =
 
   [_lastTabClosingAlert stop];
   _lastTabClosingAlert = nil;
-
-  [_BWGCoordinator stop];
-  _BWGCoordinator = nil;
 
   [_enterpriseDialogCoordinator stop];
   _enterpriseDialogCoordinator = nil;
@@ -3355,9 +3353,13 @@ const char kChromeAppStoreUrl[] =
   if (!tab_helper || !tab_helper->IsChoosingFiles()) {
     return;
   }
-  if (!AuthenticationServiceFactory::GetForProfile(self.profile)
-           ->HasPrimaryIdentity()) {
-    // Drive can’t be accessed if the user has no primary identity.
+  if (!(base::FeatureList::IsEnabled(kIOSChooseFromDriveSignedOut) ||
+        AuthenticationServiceFactory::GetForProfile(self.profile)
+            ->HasPrimaryIdentity())) {
+    // Drive can be accessed if either:
+    //   - The user has a primary identity, or
+    //   - The kIOSChooseFromDriveSignedOut flag is enabled.
+    // Since neither of these are true, the file picker is not presented.
     tab_helper->SetIsPresentingFilePicker(false);
     return;
   }
@@ -3636,48 +3638,27 @@ const char kChromeAppStoreUrl[] =
     return;
   }
 
-  if (IsGeminiRefactoredFREEnabled() ||
-      startupState.entryPoint == gemini::EntryPoint::ImageContextMenu) {
-    geminiBrowserAgent->StartGeminiFlow(self.viewController, startupState);
-    return;
-  }
-
-  _BWGCoordinator = [[BWGCoordinator alloc]
-      initWithBaseViewController:self.viewController
-                         browser:self.browser
-                  fromEntryPoint:startupState.entryPoint];
-  [_BWGCoordinator start];
+  geminiBrowserAgent->StartGeminiFlow(self.viewController, startupState);
 }
 
 - (void)dismissGeminiFlowWithCompletion:(ProceduralBlock)completion {
-  if (IsGeminiRefactoredFREEnabled()) {
-    // If the user is still in the FRE, dismiss it.
-    if (_geminiFirstRunCoordinator) {
-      [_geminiFirstRunCoordinator stopWithCompletion:completion];
-      _geminiFirstRunCoordinator = nil;
-      return;
-    }
-
-    GeminiBrowserAgent* geminiBrowserAgent =
-        GeminiBrowserAgent::FromBrowser(self.browser);
-    if (geminiBrowserAgent) {
-      geminiBrowserAgent->DismissFloaty();
-    } else {
-      CHECK(geminiBrowserAgent, base::NotFatalUntil::M152);
-    }
-    if (completion) {
-      completion();
-    }
+  // If the user is still in the FRE, dismiss it.
+  if (_geminiFirstRunCoordinator) {
+    [_geminiFirstRunCoordinator stopWithCompletion:completion];
+    _geminiFirstRunCoordinator = nil;
     return;
   }
 
-  if (!_BWGCoordinator && completion) {
+  GeminiBrowserAgent* geminiBrowserAgent =
+      GeminiBrowserAgent::FromBrowser(self.browser);
+  if (geminiBrowserAgent) {
+    geminiBrowserAgent->DismissFloaty();
+  } else {
+    CHECK(geminiBrowserAgent, base::NotFatalUntil::M152);
+  }
+  if (completion) {
     completion();
-    return;
   }
-
-  [_BWGCoordinator stopWithCompletion:completion];
-  _BWGCoordinator = nil;
 }
 
 - (void)updateFloatyWithTraitCollection:(UITraitCollection*)traitCollection {
@@ -3705,8 +3686,6 @@ const char kChromeAppStoreUrl[] =
 
 - (void)startGeminiFREWithCompletion:(void (^)(BOOL success))completion
                       fromEntryPoint:(gemini::EntryPoint)entryPoint {
-  CHECK(IsGeminiRefactoredFREEnabled());
-
   __weak BrowserCoordinator* weakSelf = self;
   ProceduralBlock startCoordinatorBlock = ^{
     [weakSelf startGeminiFirstRunCoordinatorWithCompletion:completion
@@ -5319,6 +5298,7 @@ const char kChromeAppStoreUrl[] =
       [[MiniMapCoordinator alloc] initWithBaseViewController:self.viewController
                                                      browser:self.browser
                                                         text:text
+                                                         URL:nil
                                                      withIPH:YES
                                                         mode:MiniMapMode::kMap];
   [self.miniMapCoordinator start];
@@ -5329,6 +5309,7 @@ const char kChromeAppStoreUrl[] =
       [[MiniMapCoordinator alloc] initWithBaseViewController:self.viewController
                                                      browser:self.browser
                                                         text:text
+                                                         URL:nil
                                                      withIPH:NO
                                                         mode:MiniMapMode::kMap];
   [self.miniMapCoordinator start];
@@ -5339,8 +5320,20 @@ const char kChromeAppStoreUrl[] =
       initWithBaseViewController:self.viewController
                          browser:self.browser
                             text:text
+                             URL:nil
                          withIPH:NO
                             mode:MiniMapMode::kDirections];
+  [self.miniMapCoordinator start];
+}
+
+- (void)presentMiniMapNativePreviewForURL:(NSURL*)URL {
+  self.miniMapCoordinator = [[MiniMapCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser
+                            text:nil
+                             URL:URL
+                         withIPH:NO
+                            mode:MiniMapMode::kMapNativePreviewURL];
   [self.miniMapCoordinator start];
 }
 

@@ -296,7 +296,7 @@ BASE_DECLARE_FEATURE(kEnableOAuthMultiloginStandardCookiesBinding);
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(
-    kEnableOAuthMultiloginStandardCookiesBindingForGlicPartition);
+    kEnableOAuthMultiloginStandardCookiesBindingForSecondaryPartitions);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // Enables a separate account-scoped storage for preferences.
@@ -432,6 +432,8 @@ bool IsFirstRunDesktopRevampEnabled(bool is_in_search_engine_choice_region);
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kForceHistoryOptInScreen);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kForceShowWebSigninLoadingDialog);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -464,11 +466,6 @@ BASE_DECLARE_FEATURE(kGlicEligibilitySeparateAccountCapability);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kHandleMdmErrorsForDasherAccounts);
 
-#if BUILDFLAG(IS_IOS)
-// Follow-ups to EnableIdentityInAuthError.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kIdentityInAuthErrorFollowUps);
-#endif
 
 #if BUILDFLAG(IS_IOS)
 // Killswitch for ignoring X-Chrome-Manage-Accounts header in subframes.
@@ -505,15 +502,6 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kNonDefaultGaiaOriginCheck);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-// Experimenting with a button to all profiles from the profile picker.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kOpenAllProfilesFromProfilePickerExperiment);
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-extern const base::FeatureParam<int>
-    kMaxProfilesCountToShowOpenAllButtonInProfilePicker;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Add new entry points for uploading passwords to account storage and update
 // existing ones.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -523,22 +511,6 @@ BASE_DECLARE_FEATURE(kPasswordUploadUiUpdate);
 // creation.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfileCreationDeclineSigninCTAExperiment);
-
-// Experimenting with prefill name requirement for the profile creation flow.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(
-    kProfileCreationFrictionReductionExperimentPrefillNameRequirement);
-
-// Experimenting with removing signin in the profile creation flow.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(
-    kProfileCreationFrictionReductionExperimentRemoveSigninStep);
-
-// Experimenting with removing the profile customization bubble in the profile
-// creation flow.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(
-    kProfileCreationFrictionReductionExperimentSkipCustomizeProfile);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_ANDROID)

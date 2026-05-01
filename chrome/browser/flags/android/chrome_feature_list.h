@@ -220,7 +220,6 @@ BASE_DECLARE_FEATURE(kMoveToFrontInLaunchIntentDispatcher);
 BASE_DECLARE_FEATURE(kMultiInstanceSharedPrefsMigration);
 BASE_DECLARE_FEATURE(kMvcUpdateViewWhenModelChanged);
 BASE_DECLARE_FEATURE(kNavBarColorAnimation);
-BASE_DECLARE_FEATURE(kNewTabPageCustomizationForMvt);
 BASE_DECLARE_FEATURE(kNewTabPageCustomizationV2);
 BASE_DECLARE_FEATURE(kNotificationPermissionVariant);
 BASE_DECLARE_FEATURE(kNotificationTrampoline);
@@ -301,8 +300,10 @@ BASE_DECLARE_FEATURE(kUmaSessionCorrectnessFixes);
 BASE_DECLARE_FEATURE(kUnparcelIntentFileDescriptors);
 BASE_DECLARE_FEATURE(kUpdateCompositorForSurfaceControl);
 BASE_DECLARE_FEATURE(kUseActivityManagerForTabActivation);
+BASE_DECLARE_FEATURE(kUseAppTaskForCustomTabActivation);
 BASE_DECLARE_FEATURE(kUseInitialNetworkStateAtStartup);
 BASE_DECLARE_FEATURE(kUseLibunwindstackNativeUnwinderAndroid);
+BASE_DECLARE_FEATURE(kVirtualKeyboardTransientInnerHeightFix);
 BASE_DECLARE_FEATURE(kWebOtpCrossDeviceSimpleString);
 BASE_DECLARE_FEATURE(kXplatSyncedSetup);
 BASE_DECLARE_FEATURE(kYourSavedInfoSettingsPageAndroid);
@@ -348,6 +349,11 @@ inline constexpr base::FeatureParam<bool> kCCTNavigationalPrefetchHoldback(
     &kCCTNavigationalPrefetch,
     "holdback",
     false);
+
+inline constexpr base::FeatureParam<bool>
+    kEnableAndroidSidePanelDisableAnimations(&kEnableAndroidSidePanel,
+                                             "disable_animations",
+                                             false);
 
 // If it does not support PERCEPTIBLE importance (e.g. Android Q- does not
 // support not-perceptible binding), protected tabs have MODERATE importance as

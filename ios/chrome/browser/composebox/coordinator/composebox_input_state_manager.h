@@ -51,9 +51,15 @@ class WebStateID;
 // Delegate protocol for ComposeboxInputStateManager.
 @protocol ComposeboxInputStateManagerDelegate <NSObject>
 
-// Called when the input state is updated.
+// Called when the mode changes with the list of attachments that are now
+// invalid.
 - (void)inputStateManager:(ComposeboxInputStateManager*)manager
-      didUpdateInputState:(const contextual_search::InputState&)inputState;
+             didChangeMode:(ComposeboxMode)mode
+    invalidatedAttachments:(NSArray<ComposeboxInputItem*>*)invalidatedItems;
+
+// Called when the UI input state has changed. Delegate can call
+// `computeUIInputStateWithFavicon` to get the new state.
+- (void)inputStateManagerDidUpdateUIState:(ComposeboxInputStateManager*)manager;
 
 @end
 
@@ -63,15 +69,13 @@ class WebStateID;
 // The delegate to be notified of state updates.
 @property(nonatomic, weak) id<ComposeboxInputStateManagerDelegate> delegate;
 
-// The current active tool mode.
-@property(nonatomic, assign) omnibox::ToolMode activeTool;
-
 // The current active model option. Use `setActiveModel:explicitUserAction:` to
 // set the model.
 @property(nonatomic, readonly) ComposeboxModelOption activeModel;
 
 // The current input state.
-@property(nonatomic, readonly) const contextual_search::InputState& inputState;
+@property(nonatomic, readonly) std::optional<contextual_search::InputState>
+    inputState;
 
 // The collection of items attached to the composebox.
 @property(nonatomic, weak) ComposeboxInputItemCollection* items;
@@ -106,6 +110,9 @@ class WebStateID;
 
 // Notifies the model that the context has changed.
 - (void)onContextChanged;
+
+// Notifies the manager that items have been updated.
+- (void)onItemsUpdated;
 
 // Records the active modes when a submission occurs.
 - (void)recordInputStateOnSubmission;

@@ -1406,6 +1406,12 @@ void LocalFrameView::DynamicViewportUnitsChanged() {
     GetFrame().GetDocument()->DynamicViewportUnitsChanged();
 }
 
+void LocalFrameView::LargeViewportUnitsChanged() {
+  if (Document* document = GetFrame().GetDocument()) {
+    document->MarkViewportUnitsDirty();
+  }
+}
+
 bool LocalFrameView::ShouldSetCursor() const {
   Page* page = GetFrame().GetPage();
   return page && page->IsPageVisible() &&
@@ -2719,16 +2725,6 @@ bool LocalFrameView::ShouldDeferLayoutSnap() const {
   return false;
 }
 
-void LocalFrameView::EnqueueScrollSnapChangingFromImplIfNecessary() {
-  ForAllNonThrottledLocalFrameViews([](LocalFrameView& frame_view) {
-    for (const auto& area : frame_view.scrollable_areas_.Values()) {
-      if (area->ScrollsOverflow()) {
-        area->EnqueueScrollSnapChangingEventFromImplIfNeeded();
-      }
-    }
-  });
-}
-
 bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
     DocumentLifecycle::LifecycleState target_state) {
   TRACE_EVENT0("blink,benchmark",
@@ -2757,9 +2753,6 @@ bool LocalFrameView::RunStyleAndLayoutLifecyclePhases(
   });
 
   ExecutePendingSnapUpdates();
-
-  // Fire scrollsnapchanging events based on the new layout if necessary.
-  EnqueueScrollSnapChangingFromImplIfNecessary();
 
   ExecutePendingScrollMarkerSelectionUpdates();
 

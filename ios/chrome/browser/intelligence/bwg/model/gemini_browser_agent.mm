@@ -214,7 +214,7 @@ GeminiBrowserAgent::GeminiBrowserAgent(Browser* browser)
       FullscreenBrowserAgent* agent =
           FullscreenBrowserAgent::FromBrowser(browser_);
       CHECK(agent);
-      agent->AddObserver(this);
+      fullscreen_observation_.Observe(agent);
     } else {
       FullscreenController::CreateForBrowser(browser_);
       fullscreen_controller_ = FullscreenController::FromBrowser(browser_);
@@ -293,14 +293,6 @@ GeminiBrowserAgent::~GeminiBrowserAgent() {
   if (fullscreen_controller_) {
     fullscreen_controller_->RemoveObserver(this);
     fullscreen_controller_ = nullptr;
-  }
-
-  if (IsFullscreenRefactoringEnabled()) {
-    FullscreenBrowserAgent* fullscreenBrowserAgent =
-        FullscreenBrowserAgent::FromBrowser(browser_);
-    if (fullscreenBrowserAgent) {
-      fullscreenBrowserAgent->RemoveObserver(this);
-    }
   }
 
   if (IsGeminiCopresenceWithFullscreenDisablerEnabled()) {
@@ -610,26 +602,6 @@ void GeminiBrowserAgent::PresentFloaty(UIViewController* base_view_controller,
     ApplyUserPrefsToPageContext(gemini_page_context);
     ios::provider::UpdatePageContext(gemini_page_context);
   }
-}
-
-void GeminiBrowserAgent::PresentFloatyWithPendingContext(
-    UIViewController* base_view_controller,
-    std::unique_ptr<optimization_guide::proto::PageContext> page_context,
-    GeminiStartupState* startup_state) {
-  web::WebState* active_web_state =
-      browser_->GetWebStateList()->GetActiveWebState();
-  ios::provider::GeminiPageContextComputationState computation_state =
-      ios::provider::GeminiPageContextComputationState::kPending;
-
-  if (active_web_state && !CanExtractPageContextForWebState(active_web_state)) {
-    computation_state =
-        IsGeminiFloatyAllPagesEnabled()
-            ? ios::provider::GeminiPageContextComputationState::kBlocked
-            : ios::provider::GeminiPageContextComputationState::kError;
-  }
-
-  PresentFloatyWithState(base_view_controller, std::move(page_context),
-                         computation_state, startup_state);
 }
 
 void GeminiBrowserAgent::PresentFloatyWithPendingContext(
@@ -1092,7 +1064,7 @@ void GeminiBrowserAgent::DidUpdateObscuredInsetRange(
 }
 
 void GeminiBrowserAgent::WillShutDown(FullscreenBrowserAgent* agent) {
-  agent->RemoveObserver(this);
+  fullscreen_observation_.Reset();
 }
 
 #pragma mark - Private

@@ -1891,7 +1891,8 @@ void Document::setXMLStandalone(bool standalone,
   xml_standalone_ = standalone ? kStandalone : kNotStandalone;
 }
 
-void Document::SetContent(const String& content) {
+void Document::SetContent(const String& content,
+                          StreamingSanitizer* sanitizer) {
   // Only set the content of the document if it is ready to be set. This method
   // could be called at any time.
   if (ScriptableDocumentParser* parser = GetScriptableDocumentParser()) {
@@ -1901,9 +1902,13 @@ void Document::SetContent(const String& content) {
   if (ignore_opens_during_unload_count_)
     return;
 
+  sanitizer_ = sanitizer;
+
   open();
   parser_->Append(content);
   close();
+
+  sanitizer_ = nullptr;
 }
 
 using AllowState = blink::Document::DeclarativeShadowRootAllowState;
@@ -3412,7 +3417,8 @@ void Document::AddedEventListener(
     const AtomicString& event_type,
     RegisteredEventListener& registered_listener) {
   ContainerNode::AddedEventListener(event_type, registered_listener);
-  if (event_type == event_type_names::kAutofill) {
+  if (event_type == event_type_names::kAutofill &&
+      RuntimeEnabledFeatures::AutofillEventEnabled(GetExecutionContext())) {
     UseCounter::Count(*this, WebFeature::kAutofillEvent);
   }
 }
@@ -3587,7 +3593,7 @@ DocumentParser* Document::CreateParser() {
       registry = CustomElementRegistry::DefaultRegistry(*this);
     }
     return MakeGarbageCollected<HTMLDocumentParser>(
-        *html_document, parser_sync_policy_, registry);
+        *html_document, parser_sync_policy_, registry, sanitizer_.Get());
   }
 
   data_->using_rust_xml_parser_ = false;
@@ -6586,8 +6592,8 @@ void Document::EnqueueOverscrollEvent(const AtomicString& type,
 }
 
 void Document::EnqueueMoveEvent() {
-  CHECK(
-      RuntimeEnabledFeatures::DesktopPWAsAdditionalWindowingControlsEnabled());
+  CHECK(RuntimeEnabledFeatures::
+            DesktopPWAsAdditionalWindowingControlsOnMoveEnabled());
 
   Event* event = Event::Create(event_type_names::kMove);
   event->SetTarget(domWindow());
@@ -9509,6 +9515,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(dom_window_);
   visitor->Trace(fetcher_);
   visitor->Trace(parser_);
+  visitor->Trace(sanitizer_);
   visitor->Trace(http_refresh_scheduler_);
   visitor->Trace(document_timing_);
   visitor->Trace(media_query_matcher_);
@@ -10155,6 +10162,7 @@ void Document::UpdateRenderFrameRate() {
 // static
 Document* Document::parseHTMLInternal(ExecutionContext* context,
                                       const String& html,
+                                      StreamingSanitizer* sanitizer,
                                       ExceptionState& exception_state) {
   Document* doc = DocumentInit::Create()
                       .WithTypeFrom(keywords::kTextHtml)
@@ -10162,8 +10170,11 @@ Document* Document::parseHTMLInternal(ExecutionContext* context,
                       .WithAgent(*context->GetAgent())
                       .CreateDocument();
   doc->setAllowDeclarativeShadowRoots(true);
-  doc->SetContent(html);
+  doc->SetContent(html, sanitizer);
   doc->SetMimeType(keywords::kTextHtml);
+  if (sanitizer) {
+    sanitizer->DidParseDocument(doc);
+  }
   return doc;
 }
 
@@ -10178,7 +10189,8 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
   if (exception_state.HadException()) {
     return nullptr;
   }
-  return parseHTMLInternal(context, compliant_html, exception_state);
+  return parseHTMLInternal(context, compliant_html, /*sanitizer=*/nullptr,
+                           exception_state);
 }
 
 // static
@@ -10194,11 +10206,26 @@ Document* Document::parseHTMLUnsafe(ExecutionContext* context,
   if (exception_state.HadException()) {
     return nullptr;
   }
-  Document* doc = parseHTMLInternal(context, compliant_html, exception_state);
-  SanitizerAPI::SanitizeInternal(Sanitizer::Mode::kUnsafe,
-                                 /*context_element*/ doc, /*root_element*/ doc,
-                                 FragmentParserOptions(options),
-                                 exception_state);
+
+  auto* streaming_sanitizer =
+      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
+          ? SanitizerAPI::CreateStreamingSanitizer(
+                Sanitizer::Mode::kUnsafe, FragmentParserOptions(options),
+                exception_state)
+          : nullptr;
+
+  if (exception_state.HadException()) {
+    return nullptr;
+  }
+  Document* doc = parseHTMLInternal(context, compliant_html,
+                                    streaming_sanitizer, exception_state);
+  if (!RuntimeEnabledFeatures::StreamingSanitizerEnabled()) {
+    CHECK(!streaming_sanitizer);
+    SanitizerAPI::SanitizeInternal(
+        Sanitizer::Mode::kUnsafe,
+        /*context_element*/ doc, /*root_element*/ doc,
+        FragmentParserOptions(options), exception_state);
+  }
   if (exception_state.HadException()) {
     return nullptr;
   }
@@ -10211,11 +10238,20 @@ Document* Document::parseHTML(ExecutionContext* context,
                               SetHTMLOptions* options,
                               ExceptionState& exception_state) {
   CHECK(RuntimeEnabledFeatures::SanitizerAPIEnabled());
-  Document* doc = parseHTMLInternal(context, html, exception_state);
-  SanitizerAPI::SanitizeInternal(Sanitizer::Mode::kSafe,
-                                 /*context_element*/ doc, /*root_element*/ doc,
-                                 FragmentParserOptions(options),
-                                 exception_state);
+  auto* streaming_sanitizer =
+      RuntimeEnabledFeatures::StreamingSanitizerEnabled()
+          ? SanitizerAPI::CreateStreamingSanitizer(
+                Sanitizer::Mode::kSafe, FragmentParserOptions(options),
+                exception_state)
+          : nullptr;
+  Document* doc =
+      parseHTMLInternal(context, html, streaming_sanitizer, exception_state);
+  if (!streaming_sanitizer) {
+    SanitizerAPI::SanitizeInternal(
+        Sanitizer::Mode::kSafe,
+        /*context_element*/ doc, /*root_element*/ doc,
+        FragmentParserOptions(options), exception_state);
+  }
   if (exception_state.HadException()) {
     return nullptr;
   }

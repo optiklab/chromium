@@ -72,22 +72,37 @@ enum ToolbarButtonType {
   kHome,
 };
 
-enum OmniboxActionName {
-  kFocus,
-  kBlur,
-  kTextInput,
-  kKeyDown,
+struct OmniboxActionFocusChange {
+  bool has_focus = false;
+  gfx.mojom.Range selection;
 };
 
-struct OmniboxAction {
-  OmniboxActionName name;
-  // Set for kTextInput and kKeyDown
-  // For kTextInput, it's the entire user-entered text, and thus should be
-  // considered untrusted.
-  // For kKeyDown it's the KeyboardEvent.key of the event; nothing else
-  // should be stored in this field.
-  string text;
+struct OmniboxActionTextInput {
+  // The entire user-entered text (not including any displayed inline
+  // autocompletion). Should be considered untrusted.
+  mojo_base.mojom.String16 text;
+
+  // The unaccepted portion of inline autocompletion. (May be a suffix of
+  // what the model suggested if the user typed some of the expected
+  // characters).
+  mojo_base.mojom.String16 inline_autocompletion;
+
   gfx.mojom.Range selection;
+};
+
+struct OmniboxActionKey {
+  // For now this is just key down, but will likely be more in the future.
+
+  // KeyboardEvent.key of the event; nothing else should be stored in this
+  // field.
+  string key;
+  gfx.mojom.Range selection;
+};
+
+union OmniboxAction {
+  OmniboxActionFocusChange focus_change;
+  OmniboxActionTextInput text_input;
+  OmniboxActionKey key;
 };
 
 struct ReloadControlState {
@@ -222,6 +237,10 @@ struct OmniboxTextPortion {
 struct OmniboxViewState {
   // Text to display in the omnibox view.
   array<OmniboxTextPortion> text_pieces;
+
+  // Inline autocompletion to display. If not empty, this may override
+  // `selection`.
+  mojo_base.mojom.String16 inline_autocompletion;
 
   // Selection or caret (if start == end) to set on the omnibox view, if any.
   gfx.mojom.Range? selection;

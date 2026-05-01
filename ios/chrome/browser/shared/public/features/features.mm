@@ -33,6 +33,22 @@ BASE_FEATURE(kSafetyCheckAutorunByManagerKillswitch,
 BASE_FEATURE(kSafetyCheckModuleHiddenIfNoIssuesKillswitch,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kTabGridSetupMode, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kTabGridSetupModeParamName[] = "mode";
+
+const base::FeatureParam<int> kTabGridSetupModeParam(
+    &kTabGridSetupMode,
+    kTabGridSetupModeParamName,
+    static_cast<int>(TabGridSetupMode::kImmediate));
+
+TabGridSetupMode GetTabGridSetupMode() {
+  if (!base::FeatureList::IsEnabled(kTabGridSetupMode)) {
+    return TabGridSetupMode::kImmediate;
+  }
+  return static_cast<TabGridSetupMode>(kTabGridSetupModeParam.Get());
+}
+
 BASE_FEATURE(kOmahaServiceRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kHideToolbarsInOverflowMenu, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -99,7 +115,7 @@ bool IsNewTabGridTransitionsEnabled() {
 
 BASE_FEATURE(kTabGroupInOverflowMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kTabSwitcherOverflowMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabSwitcherOverflowMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kContextualPanelForceShowEntrypoint,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -813,6 +829,12 @@ const char kDisableKeyboardAccessoryCompletely[] =
 BASE_FEATURE(kEnableFuseboxKeyboardAccessory,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAIOmniboxAskPlaceholder, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsAIOmniboxAskPlaceholderEnabled() {
+  return base::FeatureList::IsEnabled(kAIOmniboxAskPlaceholder);
+}
+
 const char kEnableFuseboxKeyboardAccessoryParam[] =
     "kEnableFuseboxKeyboardAccessoryParam";
 const char kEnableFuseboxKeyboardAccessoryOnlySymbols[] =
@@ -1233,3 +1255,6 @@ BASE_FEATURE(kAssistantAimMinimizedState, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAssistantAimMinimizedStateEnabled() {
   return base::FeatureList::IsEnabled(kAssistantAimMinimizedState);
 }
+
+BASE_FEATURE(kUseUIGraphicsImageRendererForFallbackIcons,
+             base::FEATURE_DISABLED_BY_DEFAULT);

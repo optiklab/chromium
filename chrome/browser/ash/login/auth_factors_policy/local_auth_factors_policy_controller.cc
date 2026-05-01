@@ -25,6 +25,7 @@
 #include "chrome/browser/notifications/notification_display_service.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/login/auth/auth_factor_editor.h"
 #include "chromeos/ash/components/login/auth/public/authentication_error.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
@@ -42,6 +43,7 @@
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/vector_icons/vector_icons.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 #include "ui/message_center/public/cpp/notification_types.h"
@@ -238,38 +240,42 @@ void LocalAuthFactorsPolicyController::OnFactorChanged(AuthFactor factor) {
   const int enforced_complexity =
       prefs().GetInteger(ash::prefs::kLocalAuthFactorsComplexity);
 
+  // A secret was updated successfully. The new secret naturally complies
+  // with the currently enforced policy, so we can mark the factor as verified.
   switch (factor) {
     case AuthFactor::kPrefBasedPin:
     case AuthFactor::kCryptohomePin:
     case AuthFactor::kCryptohomePinV2:
-    case AuthFactor::kLocalPassword:
-      // A secret was updated successfully. The new secret naturally complies
-      // with the currently enforced policy, so we can mark the current policy
-      // as verified.
-      // TODO: b/445628211 - Separate verified complexity for PIN and password.
-      prefs().SetInteger(ash::prefs::kLocalAuthFactorsVerifiedComplexity,
+      prefs().SetInteger(ash::prefs::kLocalPinVerifiedComplexity,
                          enforced_complexity);
-      DismissComplexityUpdateNotification();
+      break;
+    case AuthFactor::kLocalPassword:
+      prefs().SetInteger(ash::prefs::kLocalPasswordVerifiedComplexity,
+                         enforced_complexity);
       break;
     case AuthFactor::kRecovery:
     case AuthFactor::kGaiaPassword:
-      break;
+      return;
   }
+
+  // After a factor has changed, re-evaluate if the notification should be
+  // shown.
+  OnComplexityPrefUpdated();
 }
 
 void LocalAuthFactorsPolicyController::OnComplexityPrefUpdated() {
   const int enforced_complexity =
       prefs().GetInteger(ash::prefs::kLocalAuthFactorsComplexity);
-  const int verified_complexity =
-      prefs().GetInteger(ash::prefs::kLocalAuthFactorsVerifiedComplexity);
 
-  // If the policy requires a higher complexity than the user has verified,
-  // trigger the notification.
-  if (enforced_complexity > verified_complexity) {
-    ShowComplexityUpdateNotification();
-  } else {
+  if (enforced_complexity ==
+      static_cast<int>(ash::LocalAuthFactorsComplexity::kNone)) {
     DismissComplexityUpdateNotification();
+    return;
   }
+
+  // If the policy requires a certain complexity, trigger the re-evaluation of
+  // the notification.
+  ShowComplexityUpdateNotification();
 }
 
 void LocalAuthFactorsPolicyController::ShowComplexityUpdateNotification() {
@@ -303,24 +309,46 @@ void LocalAuthFactorsPolicyController::OnShowComplexityUpdateNotification(
   if (!has_password && !has_pin) {
     LOG(WARNING) << "Complexity update required but no local password or PIN "
                     "found for user.";
+    DismissComplexityUpdateNotification();
     return;
   }
 
-  // TODO: b/445628211 - Use localized strings.
+  const int enforced_complexity =
+      prefs().GetInteger(ash::prefs::kLocalAuthFactorsComplexity);
+  const int password_verified =
+      prefs().GetInteger(ash::prefs::kLocalPasswordVerifiedComplexity);
+  const int pin_verified =
+      prefs().GetInteger(ash::prefs::kLocalPinVerifiedComplexity);
+
+  const bool password_needs_update =
+      has_password && enforced_complexity > password_verified;
+  const bool pin_needs_update = has_pin && enforced_complexity > pin_verified;
+
+  if (!password_needs_update && !pin_needs_update) {
+    DismissComplexityUpdateNotification();
+    return;
+  }
+
   std::u16string title;
-  std::u16string message =
-      u"Your administrator updated the security requirements for your device";
+  std::u16string message = l10n_util::GetStringUTF16(
+      IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_MESSAGE);
   std::u16string button_title;
 
-  if (has_password && has_pin) {
-    title = u"Change your PIN and password";
-    button_title = u"Go to Settings";
-  } else if (has_password) {
-    title = u"Change your password";
-    button_title = u"Change password";
+  if (password_needs_update && pin_needs_update) {
+    title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_TITLE_BOTH);
+    button_title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_BUTTON_BOTH);
+  } else if (password_needs_update) {
+    title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_TITLE_PASSWORD);
+    button_title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_BUTTON_PASSWORD);
   } else {
-    title = u"Change your PIN";
-    button_title = u"Change PIN";
+    title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_TITLE_PIN);
+    button_title = l10n_util::GetStringUTF16(
+        IDS_LOCAL_AUTH_FACTORS_POLICY_COMPLEXITY_UPDATE_BUTTON_PIN);
   }
 
   ShowNotification(profile_, title, message, button_title);

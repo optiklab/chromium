@@ -520,6 +520,7 @@ should be able to be added at any place in this file.
       summary="For iOSLensOverlayEscapeHatchTip IPH feature"/>
   <variant name="_iOSLensPromoDesktop"
       summary="For iOSLensPromoDesktop feature"/>
+  <variant name="_iOSNewIAPromoFeature" summary="For New IA promo on startup."/>
   <variant name="_iOSOneTimeDefaultBrowserNotification"
       summary="For iOSOneTimeDefaultBrowserNotification feature"/>
   <variant name="_iOSOverflowMenuCustomization"
@@ -745,7 +746,7 @@ should be able to be added at any place in this file.
       summary="For Resumption Rail feature entrypoint."/>
   <variant name="_RtlGestureNavigation"
       summary="For the gesture navigation in RTL mode."/>
-  <variant name="_SearchExtensionSideloadFeature"
+  <variant name="_SearchPromotionFeature"
       summary="IPH for Search extension promo on Windows"/>
   <variant name="_SharedHighlightingBuilder"
       summary="For SharedHighlightingBuilder feature."/>
@@ -16696,8 +16697,7 @@ should be able to be added at any place in this file.
   <description>The user tapped outside the in-product help bubble.</description>
 </action>
 
-<action
-    name="InProductHelp.ShouldTriggerHelpUI.IPH_SearchExtensionSideloadFeature">
+<action name="InProductHelp.ShouldTriggerHelpUI.IPH_SearchPromotionFeature">
   <owner>qlucyk@chromium.org</owner>
   <owner>iclelland@chromium.org</owner>
   <description>
@@ -27178,6 +27178,15 @@ should be able to be added at any place in this file.
   <owner>bling-mony-pod@google.com</owner>
   <description>
     Reported when the application was launched via an External Action URL.
+  </description>
+</action>
+
+<action name="MobileExternalActionURLOpenedWithAppStoreGeminiPromo">
+  <owner>joemerramos@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when the application was launched via an External Action URL with
+    the AppStoreGeminiPromo action. iOS only.
   </description>
 </action>
 
@@ -45552,6 +45561,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Impression_FromSettingsAutofillAndPasswords"
+    not_user_triggered="true">
+  <owner>josefraska@google.com</owner>
+  <owner>chrome-autofill-team@google.com</owner>
+  <description>
+    Recorded when showing sign in entry in the Autofill and passwords settings
+    page.
+  </description>
+</action>
+
 <action name="Signin_Impression_FromSetUpList">
   <owner>scottyoder@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
@@ -46603,6 +46622,16 @@ should be able to be added at any place in this file.
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::kSettings.
+  </description>
+</action>
+
+<action name="Signin_Signin_FromSettingsAutofillAndPasswords">
+  <owner>josefraska@google.com</owner>
+  <owner>chrome-autofill-team@google.com</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::kSettingsAutofillAndPasswords, emitted from
+    Autofill and passwords settings page.
   </description>
 </action>
 
